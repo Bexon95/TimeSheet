@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../database/models.dart';
 import '../providers/providers.dart';
+import '../services/quick_entry_service.dart';
+import '../widgets/quick_entry_settings.dart';
 import '../widgets/time_entry_form.dart';
 import '../widgets/timer_banner.dart';
 import '../widgets/workplace_app_bar.dart';
@@ -20,6 +23,7 @@ class HomeShell extends ConsumerStatefulWidget {
 
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
+  final _quickEntryService = QuickEntryService();
 
   static const _titles = [
     'Dashboard',
@@ -60,13 +64,13 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton.large(
+      floatingActionButton: FloatingActionButton(
         onPressed: _showPlusMenu,
         child: const Icon(Icons.add),
       ),
       bottomNavigationBar: BottomAppBar(
         shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
+        notchMargin: 6,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
@@ -84,7 +88,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               selected: _index == 1,
               onTap: () => setState(() => _index = 1),
             ),
-            const SizedBox(width: 48),
+            const SizedBox(width: 40),
             _NavItem(
               icon: Icons.bar_chart_outlined,
               selectedIcon: Icons.bar_chart,
@@ -105,6 +109,37 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
   }
 
+  Future<void> _createQuickEntry(Workplace workplace, QuickEntryPreset preset) async {
+    final times = QuickEntryService.computeTimes(preset);
+    final db = ref.read(databaseProvider);
+    final entry = TimeEntry(
+      id: 0,
+      workplaceId: workplace.id,
+      date: DateTime(
+        times.start.year,
+        times.start.month,
+        times.start.day,
+      ),
+      startTime: times.start,
+      endTime: times.end,
+      hourlyRate: workplace.defaultHourlyRate,
+      notes: '',
+      source: EntrySource.manual,
+    );
+    await db.insertEntry(entry);
+    bumpRefresh(ref);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Eintrag ${QuickEntryService.formatTimeRange(times.start, times.end)} gespeichert',
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _showPlusMenu() async {
     final workplace = ref.read(appStateProvider).workplaces
         .where((w) => w.id == ref.read(appStateProvider).selectedWorkplaceId)
@@ -119,6 +154,8 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       return;
     }
 
+    final presets = await _quickEntryService.getPresets();
+
     final action = await showModalBottomSheet<String>(
       context: context,
       builder: (context) => SafeArea(
@@ -130,10 +167,23 @@ class _HomeShellState extends ConsumerState<HomeShell> {
               title: const Text('Manueller Eintrag'),
               onTap: () => Navigator.pop(context, 'manual'),
             ),
+            ...presets.map(
+              (preset) => ListTile(
+                leading: const Icon(Icons.bolt),
+                title: Text(_quickEntryService.displayLabel(preset)),
+                onTap: () => Navigator.pop(context, 'quick:${preset.id}'),
+              ),
+            ),
             ListTile(
               leading: const Icon(Icons.timer),
               title: const Text('Timer starten'),
               onTap: () => Navigator.pop(context, 'timer'),
+            ),
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.tune),
+              title: const Text('Schnelleinträge verwalten'),
+              onTap: () => Navigator.pop(context, 'manage_quick'),
             ),
           ],
         ),
@@ -141,8 +191,21 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
 
     if (action == 'manual') {
-      await showTimeEntryForm(context, workplace: workplace);
+      await showTimeEntryForm(
+        context,
+        workplace: workplace,
+        defaultMidnight: true,
+      );
       bumpRefresh(ref);
+    } else if (action == 'manage_quick') {
+      await showQuickEntrySettings(context);
+    } else if (action != null && action.startsWith('quick:')) {
+      final presetId = action.substring('quick:'.length);
+      final preset = presets.firstWhere(
+        (p) => p.id == presetId,
+        orElse: () => QuickEntryService.defaultPreset,
+      );
+      await _createQuickEntry(workplace, preset);
     } else if (action == 'timer') {
       final active = ref.read(appStateProvider).activeTimer;
       if (active != null) {

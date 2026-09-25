@@ -123,68 +123,116 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     Workplace workplace,
     DateTime day,
   ) async {
-    final entries = await DatabaseHelper.instance.getEntriesForDay(
-      workplace.id,
-      day,
-    );
-
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        expand: false,
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 0.9,
-        builder: (context, scrollController) => Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                AppFormatters.date(day),
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-              const SizedBox(height: 8),
-              Expanded(
-                child: ListView(
-                  controller: scrollController,
-                  children: [
-                    if (entries.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Text('Keine Einträge an diesem Tag.'),
-                      )
-                    else
-                      ...entries.map(
-                        (entry) => _EntryTile(
-                          entry: entry,
-                          workplace: workplace,
-                          onChanged: () {
-                            bumpRefresh(ref);
-                            _loadMarkers();
-                          },
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              FilledButton.icon(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  await showTimeEntryForm(
-                    context,
-                    workplace: workplace,
-                    initialDate: day,
-                  );
-                  bumpRefresh(ref);
-                  _loadMarkers();
-                },
-                icon: const Icon(Icons.add),
-                label: const Text('Eintrag hinzufügen'),
-              ),
-            ],
-          ),
+      builder: (context) => _DaySheet(
+        workplace: workplace,
+        day: day,
+        onMarkersChanged: _loadMarkers,
+      ),
+    );
+  }
+}
+
+class _DaySheet extends ConsumerStatefulWidget {
+  const _DaySheet({
+    required this.workplace,
+    required this.day,
+    required this.onMarkersChanged,
+  });
+
+  final Workplace workplace;
+  final DateTime day;
+  final VoidCallback onMarkersChanged;
+
+  @override
+  ConsumerState<_DaySheet> createState() => _DaySheetState();
+}
+
+class _DaySheetState extends ConsumerState<_DaySheet> {
+  List<TimeEntry> _entries = [];
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEntries();
+  }
+
+  Future<void> _loadEntries() async {
+    final entries = await DatabaseHelper.instance.getEntriesForDay(
+      widget.workplace.id,
+      widget.day,
+    );
+    if (mounted) {
+      setState(() {
+        _entries = entries;
+        _loading = false;
+      });
+    }
+  }
+
+  void _onEntryChanged() {
+    bumpRefresh(ref);
+    widget.onMarkersChanged();
+    _loadEntries();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.5,
+      minChildSize: 0.3,
+      maxChildSize: 0.9,
+      builder: (context, scrollController) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              AppFormatters.date(widget.day),
+              style: Theme.of(context).textTheme.titleLarge,
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : ListView(
+                      controller: scrollController,
+                      children: [
+                        if (_entries.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 24),
+                            child: Text('Keine Einträge an diesem Tag.'),
+                          )
+                        else
+                          ..._entries.map(
+                            (entry) => _EntryTile(
+                              entry: entry,
+                              workplace: widget.workplace,
+                              onChanged: _onEntryChanged,
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                Navigator.pop(context);
+                await showTimeEntryForm(
+                  context,
+                  workplace: widget.workplace,
+                  initialDate: widget.day,
+                );
+                bumpRefresh(ref);
+                widget.onMarkersChanged();
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Eintrag hinzufügen'),
+            ),
+          ],
         ),
       ),
     );
