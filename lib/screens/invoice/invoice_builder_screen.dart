@@ -128,9 +128,11 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
 
     bumpRefresh(ref);
 
-    await Share.shareXFiles(
-      [XFile(file.path)],
-      subject: 'Honorarnote ${saved.invoiceNumber}',
+    await SharePlus.instance.share(
+      ShareParams(
+        files: [XFile(file.path)],
+        subject: 'Honorarnote ${saved.invoiceNumber}',
+      ),
     );
 
     if (mounted) Navigator.pop(context, true);

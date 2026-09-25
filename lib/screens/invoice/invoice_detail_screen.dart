@@ -49,9 +49,11 @@ class InvoiceDetailScreen extends ConsumerWidget {
                 );
                 return;
               }
-              await Share.shareXFiles(
-                [XFile(file.path)],
-                subject: 'Honorarnote ${invoice.invoiceNumber}',
+              await SharePlus.instance.share(
+                ShareParams(
+                  files: [XFile(file.path)],
+                  subject: 'Honorarnote ${invoice.invoiceNumber}',
+                ),
               );
             },
             icon: const Icon(Icons.share),

@@ -96,6 +96,7 @@ class _WorkplaceDrawerState extends ConsumerState<WorkplaceDrawer> {
                 label: const Text('Arbeitgeber hinzufügen'),
               ),
             ),
+            const _AppVersionFooter(),
           ],
         ),
       ),
@@ -233,5 +234,29 @@ class _WorkplaceDrawerState extends ConsumerState<WorkplaceDrawer> {
       await ref.read(appStateProvider.notifier).selectWorkplace(null);
     }
     bumpRefresh(ref);
+  }
+}
+
+class _AppVersionFooter extends ConsumerWidget {
+  const _AppVersionFooter();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final packageInfo = ref.watch(packageInfoProvider);
+
+    return packageInfo.when(
+      data: (info) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Text(
+          'Version ${info.version} (${info.buildNumber})',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+          textAlign: TextAlign.center,
+        ),
+      ),
+      loading: () => const SizedBox.shrink(),
+      error: (_, _) => const SizedBox.shrink(),
+    );
   }
 }

@@ -1,0 +1,25 @@
+---
+description: App version and build number bumping rules
+alwaysApply: true
+---
+
+# Versioning
+
+App version lives in `pubspec.yaml` as `MAJOR.MINOR.PATCH+BUILD`.
+
+Bump rules:
+- **New feature** → `dart run scripts/bump_version.dart minor` (e.g. 1.0.0 → 1.1.0)
+- **Bug fix** → `dart run scripts/bump_version.dart patch` (e.g. 1.1.0 → 1.1.1)
+- **Typos, chores, small tweaks** → `dart run scripts/bump_version.dart build` (build number only)
+
+For Cursor agent sessions, write the bump type before finishing:
+- `echo minor > .cursor/.bump-type` for features
+- `echo patch > .cursor/.bump-type` for fixes
+- omit the file (or `echo build > .cursor/.bump-type`) for minor edits
+
+The `stop` hook auto-bumps when `lib/` files were edited. Git commits also bump via `.githooks/commit-msg` when hooks are installed (`scripts/install_git_hooks.sh`).
+
+Commit message prefixes:
+- `feat:` → minor bump
+- `fix:` → patch bump
+- anything else with code changes → build bump only

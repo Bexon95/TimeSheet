@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_helper.dart';
@@ -7,6 +8,10 @@ import '../services/timer_service.dart';
 
 final databaseProvider = Provider<DatabaseHelper>((ref) {
   return DatabaseHelper.instance;
+});
+
+final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
+  return PackageInfo.fromPlatform();
 });
 
 final timerServiceProvider = Provider<TimerService>((ref) => TimerService());

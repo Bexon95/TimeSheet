@@ -1,0 +1,32 @@
+#!/bin/sh
+# Bump app version based on conventional commit message prefix.
+# Install with: scripts/install_git_hooks.sh
+
+set -e
+
+commit_msg=$(cat "$1")
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+if git diff --cached --name-only | grep -q '^pubspec.yaml$'; then
+  exit 0
+fi
+
+if ! git diff --cached --name-only | grep -qE '^(lib/|test/)'; then
+  exit 0
+fi
+
+case "$commit_msg" in
+  feat:*|feat\(*\)*)
+    bump_type=minor
+    ;;
+  fix:*|fix\(*\)*)
+    bump_type=patch
+    ;;
+  *)
+    bump_type=build
+    ;;
+esac
+
+dart run scripts/bump_version.dart "$bump_type"
+git add pubspec.yaml

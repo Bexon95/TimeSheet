@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "hooks": {
+    "afterFileEdit": [
+      {
+        "command": ".cursor/hooks/mark_source_edit.bat"
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/bump_on_stop.bat"
+      }
+    ]
+  }
+}
