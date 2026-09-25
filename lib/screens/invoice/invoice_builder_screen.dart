@@ -24,7 +24,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
   final _invoiceNumberController = TextEditingController();
   final _recipientNameController = TextEditingController();
   final _recipientAddressController = TextEditingController();
-  final _teilbetragController = TextEditingController(text: 'Teilbetrag');
+  final _teilbetragController = TextEditingController(text: 'Betrag');
   final List<TextEditingController> _bulletControllers = [];
   bool _initialized = false;
 
@@ -139,11 +139,10 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
   }
 
   String _senderSnapshot(InvoiceSettings settings) {
-    return [
-      settings.senderName,
-      settings.senderAddress,
-      if (settings.senderSsn.isNotEmpty) 'SVNr. ${settings.senderSsn}',
-    ].where((line) => line.isNotEmpty).join('\n');
+    return PdfInvoiceService.senderLinesFrom(
+      snapshot: '',
+      settings: settings,
+    ).join('\n');
   }
 
   String _footerSnapshot(InvoiceSettings settings) {
@@ -151,7 +150,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       settings.vatText,
       settings.paymentText,
       if (settings.iban.isNotEmpty) settings.iban,
-      if (settings.bic.isNotEmpty) 'BIC ${settings.bic}.',
+      if (settings.bic.isNotEmpty) 'BIC ${settings.bic}',
     ].where((line) => line.isNotEmpty).join('\n');
   }
 

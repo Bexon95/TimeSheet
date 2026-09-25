@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/models.dart';
 import '../providers/providers.dart';
+import '../screens/invoice/invoice_settings_screen.dart';
 
 class WorkplaceDrawer extends ConsumerStatefulWidget {
   const WorkplaceDrawer({super.key});
@@ -95,6 +96,20 @@ class _WorkplaceDrawerState extends ConsumerState<WorkplaceDrawer> {
                 icon: const Icon(Icons.add),
                 label: const Text('Arbeitgeber hinzufügen'),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('Meine Rechnungsdaten'),
+              subtitle: const Text('Name, Adresse, IBAN, BIC'),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const InvoiceSettingsScreen(),
+                  ),
+                );
+              },
             ),
             const _AppVersionFooter(),
           ],

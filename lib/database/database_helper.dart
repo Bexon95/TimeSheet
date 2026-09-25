@@ -85,7 +85,7 @@ class DatabaseHelper {
             pdf_file_path TEXT NOT NULL,
             sender_snapshot TEXT NOT NULL DEFAULT '',
             footer_snapshot TEXT NOT NULL DEFAULT '',
-            teilbetrag_label TEXT NOT NULL DEFAULT 'Teilbetrag',
+            teilbetrag_label TEXT NOT NULL DEFAULT 'Betrag',
             FOREIGN KEY (workplace_id) REFERENCES workplaces(id) ON DELETE CASCADE
           )
         ''');

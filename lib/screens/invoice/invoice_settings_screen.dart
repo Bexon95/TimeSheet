@@ -82,23 +82,49 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              Text(
+                'Meine Daten',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
               TextField(
                 controller: _senderName,
-                decoration: const InputDecoration(labelText: 'Ihr Name'),
+                decoration: const InputDecoration(labelText: 'Name'),
               ),
               TextField(
                 controller: _senderAddress,
-                decoration: const InputDecoration(labelText: 'Ihre Adresse'),
-                maxLines: 3,
+                decoration: const InputDecoration(
+                  labelText: 'Adresse',
+                  hintText: 'Straße\nPLZ Ort',
+                ),
+                maxLines: 4,
               ),
               TextField(
                 controller: _senderSsn,
-                decoration: const InputDecoration(labelText: 'SVNr.'),
+                decoration: const InputDecoration(
+                  labelText: 'SVNr.',
+                  hintText: '1234 010195',
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Zahlungsinformationen',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: _iban,
+                decoration: const InputDecoration(
+                  labelText: 'IBAN',
+                  hintText: 'AT65 1111 2222 3333 4444',
+                ),
               ),
               TextField(
-                controller: _vatText,
-                decoration: const InputDecoration(labelText: 'USt-Text'),
-                maxLines: 2,
+                controller: _bic,
+                decoration: const InputDecoration(
+                  labelText: 'BIC',
+                  hintText: 'GIBAATWWXXX',
+                ),
               ),
               TextField(
                 controller: _paymentText,
@@ -107,13 +133,16 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
                 ),
                 maxLines: 2,
               ),
-              TextField(
-                controller: _iban,
-                decoration: const InputDecoration(labelText: 'IBAN'),
+              const SizedBox(height: 24),
+              Text(
+                'Rechnungstexte',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
+              const SizedBox(height: 8),
               TextField(
-                controller: _bic,
-                decoration: const InputDecoration(labelText: 'BIC'),
+                controller: _vatText,
+                decoration: const InputDecoration(labelText: 'USt-Text'),
+                maxLines: 2,
               ),
               const SizedBox(height: 16),
               FilledButton(

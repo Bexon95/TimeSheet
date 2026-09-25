@@ -169,8 +169,8 @@ class InvoiceSettings {
     this.senderName = '',
     this.senderAddress = '',
     this.senderSsn = '',
-    this.vatText = 'In diesem Betrag ist keine USt enthalten.',
-    this.paymentText = '',
+    this.vatText = 'In diesem Betrag ist kein UST enthalten.',
+    this.paymentText = 'Bitte um Überweisung auf mein Konto',
     this.iban = '',
     this.bic = '',
     this.lastInvoiceNumber = 0,
@@ -228,8 +228,9 @@ class InvoiceSettings {
         senderAddress: map['sender_address'] as String? ?? '',
         senderSsn: map['sender_ssn'] as String? ?? '',
         vatText: map['vat_text'] as String? ??
-            'In diesem Betrag ist keine USt enthalten.',
-        paymentText: map['payment_text'] as String? ?? '',
+            'In diesem Betrag ist kein UST enthalten.',
+        paymentText: map['payment_text'] as String? ??
+            'Bitte um Überweisung auf mein Konto',
         iban: map['iban'] as String? ?? '',
         bic: map['bic'] as String? ?? '',
         lastInvoiceNumber: map['last_invoice_number'] as int? ?? 0,
@@ -253,7 +254,7 @@ class SavedInvoice {
     required this.pdfFilePath,
     required this.senderSnapshot,
     required this.footerSnapshot,
-    this.teilbetragLabel = 'Teilbetrag',
+    this.teilbetragLabel = 'Betrag',
   });
 
   final int id;
@@ -308,7 +309,7 @@ class SavedInvoice {
         pdfFilePath: map['pdf_file_path'] as String,
         senderSnapshot: map['sender_snapshot'] as String? ?? '',
         footerSnapshot: map['footer_snapshot'] as String? ?? '',
-        teilbetragLabel: map['teilbetrag_label'] as String? ?? 'Teilbetrag',
+        teilbetragLabel: map['teilbetrag_label'] as String? ?? 'Betrag',
       );
 }
 
