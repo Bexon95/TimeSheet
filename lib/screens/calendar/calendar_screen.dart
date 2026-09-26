@@ -49,7 +49,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     ref.listen(appStateProvider.select((s) => s.selectedWorkplaceId), (
       _,
-      __,
+      _,
     ) {
       _loadMarkers();
     });

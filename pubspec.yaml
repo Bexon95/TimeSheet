@@ -1,7 +1,7 @@
 name: timesheet
 description: Local time tracking app for workplaces, projects, and invoices.
 publish_to: "none"
-version: 1.1.0+2
+version: 1.1.0+3
 
 environment:
   sdk: ^3.13.0

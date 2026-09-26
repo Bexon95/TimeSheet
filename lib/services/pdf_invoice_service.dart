@@ -86,7 +86,7 @@ class PdfInvoiceService {
               pw.Center(
                 child: pw.Text(
                   'HONORARNOTE  ${invoice.invoiceNumber}',
-                  style: pw.TextStyle(
+                  style: const pw.TextStyle(
                     fontSize: 14,
                     fontWeight: pw.FontWeight.bold,
                   ),
