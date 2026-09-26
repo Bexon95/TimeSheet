@@ -136,11 +136,6 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
             CalendarViewMode.day => _DayView(
                 workplace: workplace,
                 day: _selectedDay ?? DateTime.now(),
-                onAdd: () => showTimeEntryForm(
-                  context,
-                  workplace: workplace,
-                  initialDate: _selectedDay,
-                ),
                 onPreviousDay: () {
                   final d = _selectedDay ?? DateTime.now();
                   setState(() => _selectedDay = d.subtract(const Duration(days: 1)));
@@ -482,10 +477,23 @@ class _WeekViewState extends ConsumerState<_WeekView> {
                   )
                 : const SizedBox(width: 24),
             title: Text(AppFormatters.date(day)),
-            subtitle: hasEntries && info != null
-                ? Text('Verdient: ${AppFormatters.money(info.earned)}')
-                : const Text('Keine Einträge'),
-            trailing: const Icon(Icons.chevron_right),
+            subtitle: hasEntries ? null : const Text('Keine Einträge'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasEntries && info != null)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      AppFormatters.money(info.earned),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.bold,
+                          ),
+                    ),
+                  ),
+                const Icon(Icons.chevron_right),
+              ],
+            ),
             onTap: () => widget.onDaySelected(day),
           ),
         );
@@ -498,14 +506,12 @@ class _DayView extends ConsumerWidget {
   const _DayView({
     required this.workplace,
     required this.day,
-    required this.onAdd,
     required this.onPreviousDay,
     required this.onNextDay,
   });
 
   final Workplace workplace;
   final DateTime day;
-  final VoidCallback onAdd;
   final VoidCallback onPreviousDay;
   final VoidCallback onNextDay;
 
@@ -563,14 +569,6 @@ class _DayView extends ConsumerWidget {
                           )
                           .toList(),
                     ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: FilledButton.icon(
-                onPressed: onAdd,
-                icon: const Icon(Icons.add),
-                label: const Text('Eintrag hinzufügen'),
-              ),
             ),
           ],
         );

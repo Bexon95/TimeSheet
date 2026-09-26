@@ -122,8 +122,26 @@ class _StatisticsScreenState extends ConsumerState<StatisticsScreen> {
                             alignment: BarChartAlignment.spaceAround,
                             maxY: _maxY(points) * 1.2,
                             titlesData: FlTitlesData(
-                              leftTitles: const AxisTitles(
-                                sideTitles: SideTitles(showTitles: true),
+                              leftTitles: AxisTitles(
+                                sideTitles: SideTitles(
+                                  showTitles: true,
+                                  reservedSize: 52,
+                                  getTitlesWidget: (value, meta) {
+                                    final label = _metric == ChartMetric.money
+                                        ? AppFormatters.money(value)
+                                        : AppFormatters.hoursDecimal(value);
+                                    return SideTitleWidget(
+                                      axisSide: meta.axisSide,
+                                      child: Text(
+                                        label,
+                                        style: const TextStyle(fontSize: 10),
+                                        maxLines: 1,
+                                        softWrap: false,
+                                        textAlign: TextAlign.right,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                               bottomTitles: AxisTitles(
                                 sideTitles: SideTitles(
