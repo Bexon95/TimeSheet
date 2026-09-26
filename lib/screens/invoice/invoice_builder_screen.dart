@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:printing/printing.dart';
@@ -7,11 +9,19 @@ import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
 import '../../services/pdf_invoice_service.dart';
+import '../../widgets/date_range_selector.dart';
 
 class InvoiceBuilderScreen extends ConsumerStatefulWidget {
-  const InvoiceBuilderScreen({super.key, required this.workplace});
+  const InvoiceBuilderScreen({
+    super.key,
+    required this.workplace,
+    this.existingInvoice,
+  });
 
   final Workplace workplace;
+  final SavedInvoice? existingInvoice;
+
+  bool get isEditing => existingInvoice != null;
 
   @override
   ConsumerState<InvoiceBuilderScreen> createState() =>
@@ -27,6 +37,8 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
   final _teilbetragController = TextEditingController(text: 'Betrag');
   final List<TextEditingController> _bulletControllers = [];
   bool _initialized = false;
+  DateTime? _lastRangeKeyStart;
+  DateTime? _lastRangeKeyEnd;
 
   @override
   void dispose() {
@@ -42,26 +54,23 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
     super.dispose();
   }
 
-  Future<void> _initialize() async {
-    if (_initialized) return;
+  Future<void> _initializeFromEntries(DateRange range) async {
     final db = ref.read(databaseProvider);
-    final range = ref.read(appStateProvider).dateRange;
     final entries = await db.getEntries(
       workplaceId: widget.workplace.id,
       start: range.start,
       end: range.end,
     );
-    final invoiceNumber = await db.suggestInvoiceNumber();
     final notes = entries
         .map((e) => e.notes.trim())
         .where((n) => n.isNotEmpty)
         .toList();
     final amount = entries.fold<double>(0, (sum, e) => sum + e.earned);
 
-    _invoiceNumberController.text = invoiceNumber;
-    _recipientNameController.text = widget.workplace.recipientName;
-    _recipientAddressController.text = widget.workplace.recipientAddress;
     _amountController.text = amount.toStringAsFixed(2);
+    for (final c in _bulletControllers) {
+      c.dispose();
+    }
     _bulletControllers.clear();
     if (notes.isEmpty) {
       _bulletControllers.add(TextEditingController());
@@ -70,8 +79,57 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
         _bulletControllers.add(TextEditingController(text: note));
       }
     }
+  }
+
+  Future<void> _initialize() async {
+    if (_initialized && widget.isEditing) return;
+
+    final db = ref.read(databaseProvider);
+    final existing = widget.existingInvoice;
+
+    if (existing != null) {
+      _invoiceNumberController.text = existing.invoiceNumber;
+      _recipientNameController.text = existing.recipientName;
+      _recipientAddressController.text = existing.recipientAddress;
+      _titleController.text = existing.title;
+      _amountController.text = existing.amount.toStringAsFixed(2);
+      _teilbetragController.text = existing.teilbetragLabel;
+      _bulletControllers.clear();
+      if (existing.bulletLines.isEmpty) {
+        _bulletControllers.add(TextEditingController());
+      } else {
+        for (final line in existing.bulletLines) {
+          _bulletControllers.add(TextEditingController(text: line));
+        }
+      }
+      _initialized = true;
+      setState(() {});
+      return;
+    }
+
+    if (_initialized) return;
+
+    final range = ref.read(appStateProvider).dateRange;
+    final invoiceNumber = await db.suggestInvoiceNumber();
+    _invoiceNumberController.text = invoiceNumber;
+    _recipientNameController.text = widget.workplace.recipientName;
+    _recipientAddressController.text = widget.workplace.recipientAddress;
+    await _initializeFromEntries(range);
+    _lastRangeKeyStart = range.start;
+    _lastRangeKeyEnd = range.end;
     _initialized = true;
     setState(() {});
+  }
+
+  Future<void> _reloadFromRangeIfNeeded(DateRange range) async {
+    if (widget.isEditing) return;
+    if (_lastRangeKeyStart == range.start && _lastRangeKeyEnd == range.end) {
+      return;
+    }
+    _lastRangeKeyStart = range.start;
+    _lastRangeKeyEnd = range.end;
+    await _initializeFromEntries(range);
+    if (mounted) setState(() {});
   }
 
   void _addBullet() {
@@ -105,6 +163,37 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       invoice: draft,
       settings: settings,
     );
+
+    if (widget.isEditing) {
+      final oldPath = widget.existingInvoice!.pdfFilePath;
+      final updated = SavedInvoice(
+        id: widget.existingInvoice!.id,
+        workplaceId: draft.workplaceId,
+        createdAt: widget.existingInvoice!.createdAt,
+        invoiceNumber: draft.invoiceNumber,
+        title: draft.title,
+        amount: draft.amount,
+        recipientName: draft.recipientName,
+        recipientAddress: draft.recipientAddress,
+        dateRangeStart: draft.dateRangeStart,
+        dateRangeEnd: draft.dateRangeEnd,
+        bulletLines: draft.bulletLines,
+        pdfFilePath: file.path,
+        senderSnapshot: draft.senderSnapshot,
+        footerSnapshot: draft.footerSnapshot,
+        teilbetragLabel: draft.teilbetragLabel,
+      );
+      await db.updateSavedInvoice(updated);
+      if (oldPath != file.path) {
+        final oldFile = File(oldPath);
+        if (await oldFile.exists()) {
+          await oldFile.delete();
+        }
+      }
+      bumpRefresh(ref);
+      if (mounted) Navigator.pop(context, true);
+      return;
+    }
 
     final saved = SavedInvoice(
       id: 0,
@@ -140,12 +229,16 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
 
   String _senderSnapshot(InvoiceSettings settings) {
     return PdfInvoiceService.senderLinesFrom(
-      snapshot: '',
+      snapshot: widget.existingInvoice?.senderSnapshot ?? '',
       settings: settings,
     ).join('\n');
   }
 
   String _footerSnapshot(InvoiceSettings settings) {
+    if (widget.existingInvoice != null &&
+        widget.existingInvoice!.footerSnapshot.isNotEmpty) {
+      return widget.existingInvoice!.footerSnapshot;
+    }
     return [
       settings.vatText,
       settings.paymentText,
@@ -156,23 +249,27 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
 
   SavedInvoice _buildDraft(InvoiceSettings settings) {
     final range = ref.read(appStateProvider).dateRange;
+    final existing = widget.existingInvoice;
 
     return SavedInvoice(
-      id: 0,
+      id: existing?.id ?? 0,
       workplaceId: widget.workplace.id,
-      createdAt: DateTime.now(),
+      createdAt: existing?.createdAt ?? DateTime.now(),
       invoiceNumber: _invoiceNumberController.text.trim(),
       title: _titleController.text.trim(),
       amount: double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0,
       recipientName: _recipientNameController.text.trim(),
       recipientAddress: _recipientAddressController.text.trim(),
-      dateRangeStart: range.start,
-      dateRangeEnd: range.end,
+      dateRangeStart: widget.isEditing
+          ? existing!.dateRangeStart
+          : range.start,
+      dateRangeEnd:
+          widget.isEditing ? existing!.dateRangeEnd : range.end,
       bulletLines: _bulletControllers
           .map((c) => c.text.trim())
           .where((line) => line.isNotEmpty)
           .toList(),
-      pdfFilePath: '',
+      pdfFilePath: existing?.pdfFilePath ?? '',
       senderSnapshot: _senderSnapshot(settings),
       footerSnapshot: _footerSnapshot(settings),
       teilbetragLabel: _teilbetragController.text.trim(),
@@ -181,20 +278,32 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
 
   @override
   Widget build(BuildContext context) {
-    _initialize();
-
     final range = ref.watch(appStateProvider).dateRange;
+    _initialize();
+    _reloadFromRangeIfNeeded(range);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Neue Honorarnote')),
+      appBar: AppBar(
+        title: Text(
+          widget.isEditing ? 'Honorarnote bearbeiten' : 'Neue Honorarnote',
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Zeitraum: ${AppFormatters.dateRange(range.start, range.end)}'),
+          if (!widget.isEditing) ...[
+            const DateRangeSelector(),
+            const SizedBox(height: 8),
+            Text('Zeitraum: ${AppFormatters.dateRange(range.start, range.end)}'),
+          ] else
+            Text(
+              'Zeitraum: ${AppFormatters.dateRange(widget.existingInvoice!.dateRangeStart, widget.existingInvoice!.dateRangeEnd)}',
+            ),
           const SizedBox(height: 12),
           TextField(
             controller: _invoiceNumberController,
             decoration: const InputDecoration(labelText: 'Rechnungsnummer (x/YY)'),
+            readOnly: widget.isEditing,
           ),
           TextField(
             controller: _recipientNameController,
@@ -249,7 +358,11 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
           const SizedBox(height: 8),
           FilledButton(
             onPressed: _saveAndExport,
-            child: const Text('Speichern & PDF exportieren'),
+            child: Text(
+              widget.isEditing
+                  ? 'Speichern & PDF aktualisieren'
+                  : 'Speichern & PDF exportieren',
+            ),
           ),
         ],
       ),

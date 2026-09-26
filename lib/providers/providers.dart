@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,6 +22,89 @@ final refreshTriggerProvider = StateProvider<int>((ref) => 0);
 void bumpRefresh(WidgetRef ref) {
   ref.read(refreshTriggerProvider.notifier).state++;
 }
+
+enum AppThemeMode { system, light, dark }
+
+final themeModeProvider =
+    StateNotifierProvider<ThemeModeNotifier, ThemeMode>((ref) {
+  return ThemeModeNotifier();
+});
+
+class ThemeModeNotifier extends StateNotifier<ThemeMode> {
+  ThemeModeNotifier() : super(ThemeMode.system) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString('theme_mode');
+    state = switch (stored) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+  }
+
+  Future<void> setMode(AppThemeMode mode) async {
+    final themeMode = switch (mode) {
+      AppThemeMode.light => ThemeMode.light,
+      AppThemeMode.dark => ThemeMode.dark,
+      AppThemeMode.system => ThemeMode.system,
+    };
+    state = themeMode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'theme_mode',
+      switch (mode) {
+        AppThemeMode.light => 'light',
+        AppThemeMode.dark => 'dark',
+        AppThemeMode.system => 'system',
+      },
+    );
+  }
+}
+
+Future<int?> loadLastProjectId(int workplaceId) async {
+  final prefs = await SharedPreferences.getInstance();
+  return prefs.getInt('last_project_$workplaceId');
+}
+
+Future<void> saveLastProjectId(int workplaceId, int? projectId) async {
+  final prefs = await SharedPreferences.getInstance();
+  final key = 'last_project_$workplaceId';
+  if (projectId == null) {
+    await prefs.remove(key);
+  } else {
+    await prefs.setInt(key, projectId);
+  }
+}
+
+class DayQuery {
+  DayQuery({required this.workplaceId, required this.day});
+
+  final int workplaceId;
+  final DateTime day;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DayQuery &&
+      workplaceId == other.workplaceId &&
+      other.day.year == day.year &&
+      other.day.month == day.month &&
+      other.day.day == day.day;
+
+  @override
+  int get hashCode => Object.hash(workplaceId, day.year, day.month, day.day);
+}
+
+final dayEntriesProvider =
+    FutureProvider.family<List<TimeEntry>, DayQuery>((ref, query) async {
+  ref.watch(refreshTriggerProvider);
+  return ref.watch(databaseProvider).getEntriesForDay(
+        query.workplaceId,
+        query.day,
+      );
+});
 
 class DateRange {
   DateRange({required this.start, required this.end});

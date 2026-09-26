@@ -65,6 +65,21 @@ class Project {
   final String name;
   final int? colorValue;
 
+  Project copyWith({
+    int? id,
+    int? workplaceId,
+    String? name,
+    int? colorValue,
+    bool clearColor = false,
+  }) {
+    return Project(
+      id: id ?? this.id,
+      workplaceId: workplaceId ?? this.workplaceId,
+      name: name ?? this.name,
+      colorValue: clearColor ? null : (colorValue ?? this.colorValue),
+    );
+  }
+
   Map<String, Object?> toMap() => {
         'id': id,
         'workplace_id': workplaceId,

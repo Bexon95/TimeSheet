@@ -6,6 +6,7 @@ import '../../database/database_helper.dart';
 import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
+import '../../utils/project_colors.dart';
 import '../../widgets/time_entry_form.dart';
 
 enum CalendarViewMode { month, week, day }
@@ -21,7 +22,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   CalendarViewMode _mode = CalendarViewMode.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
-  Set<DateTime> _markedDays = {};
+  Map<DateTime, _DayMarkerInfo> _markers = {};
 
   @override
   void initState() {
@@ -30,14 +31,40 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     _loadMarkers();
   }
 
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
   Future<void> _loadMarkers() async {
     final workplaceId = ref.read(appStateProvider).selectedWorkplaceId;
     if (workplaceId == null) return;
-    final dates = await DatabaseHelper.instance.getDatesWithEntries(
-      workplaceId,
-      _focusedDay,
+
+    final start = DateTime(_focusedDay.year, _focusedDay.month, 1);
+    final end = DateTime(_focusedDay.year, _focusedDay.month + 1, 0);
+    final entries = await DatabaseHelper.instance.getEntries(
+      workplaceId: workplaceId,
+      start: start,
+      end: end,
     );
-    setState(() => _markedDays = dates);
+    final projects =
+        await DatabaseHelper.instance.getProjectsForWorkplace(workplaceId);
+    final projectColors = {
+      for (final p in projects) p.id: projectColor(p.colorValue),
+    };
+
+    final markers = <DateTime, _DayMarkerInfo>{};
+    for (final entry in entries) {
+      final day = _dateOnly(entry.date);
+      final info = markers.putIfAbsent(day, () => _DayMarkerInfo());
+      info.earned += entry.earned;
+      info.hasEntries = true;
+      if (entry.projectId != null) {
+        final c = projectColors[entry.projectId];
+        if (c != null) info.colors.add(c);
+      }
+    }
+
+    if (mounted) {
+      setState(() => _markers = markers);
+    }
   }
 
   @override
@@ -51,6 +78,10 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       _,
       _,
     ) {
+      _loadMarkers();
+    });
+
+    ref.listen(refreshTriggerProvider, (_, __) {
       _loadMarkers();
     });
 
@@ -76,10 +107,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
         Expanded(
           child: switch (_mode) {
             CalendarViewMode.month => _MonthView(
-                workplace: workplace,
                 focusedDay: _focusedDay,
                 selectedDay: _selectedDay,
-                markedDays: _markedDays,
+                markers: _markers,
                 onDaySelected: (day) {
                   setState(() {
                     _selectedDay = day;
@@ -88,7 +118,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   _showDaySheet(context, workplace, day);
                 },
                 onPageChanged: (day) {
-                  _focusedDay = day;
+                  setState(() => _focusedDay = day);
                   _loadMarkers();
                 },
               ),
@@ -111,6 +141,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                   workplace: workplace,
                   initialDate: _selectedDay,
                 ),
+                onPreviousDay: () {
+                  final d = _selectedDay ?? DateTime.now();
+                  setState(() => _selectedDay = d.subtract(const Duration(days: 1)));
+                },
+                onNextDay: () {
+                  final d = _selectedDay ?? DateTime.now();
+                  setState(() => _selectedDay = d.add(const Duration(days: 1)));
+                },
               ),
           },
         ),
@@ -135,6 +173,12 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 }
 
+class _DayMarkerInfo {
+  bool hasEntries = false;
+  double earned = 0;
+  final Set<Color> colors = {};
+}
+
 class _DaySheet extends ConsumerStatefulWidget {
   const _DaySheet({
     required this.workplace,
@@ -152,6 +196,7 @@ class _DaySheet extends ConsumerStatefulWidget {
 
 class _DaySheetState extends ConsumerState<_DaySheet> {
   List<TimeEntry> _entries = [];
+  Map<int, Project> _projects = {};
   bool _loading = true;
 
   @override
@@ -161,13 +206,16 @@ class _DaySheetState extends ConsumerState<_DaySheet> {
   }
 
   Future<void> _loadEntries() async {
-    final entries = await DatabaseHelper.instance.getEntriesForDay(
+    final db = DatabaseHelper.instance;
+    final entries = await db.getEntriesForDay(
       widget.workplace.id,
       widget.day,
     );
+    final projects = await db.getProjectsForWorkplace(widget.workplace.id);
     if (mounted) {
       setState(() {
         _entries = entries;
+        _projects = {for (final p in projects) p.id: p};
         _loading = false;
       });
     }
@@ -212,6 +260,9 @@ class _DaySheetState extends ConsumerState<_DaySheet> {
                             (entry) => _EntryTile(
                               entry: entry,
                               workplace: widget.workplace,
+                              project: entry.projectId != null
+                                  ? _projects[entry.projectId]
+                                  : null,
                               onChanged: _onEntryChanged,
                             ),
                           ),
@@ -241,20 +292,20 @@ class _DaySheetState extends ConsumerState<_DaySheet> {
 
 class _MonthView extends StatelessWidget {
   const _MonthView({
-    required this.workplace,
     required this.focusedDay,
     required this.selectedDay,
-    required this.markedDays,
+    required this.markers,
     required this.onDaySelected,
     required this.onPageChanged,
   });
 
-  final Workplace workplace;
   final DateTime focusedDay;
   final DateTime? selectedDay;
-  final Set<DateTime> markedDays;
+  final Map<DateTime, _DayMarkerInfo> markers;
   final ValueChanged<DateTime> onDaySelected;
   final ValueChanged<DateTime> onPageChanged;
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   @override
   Widget build(BuildContext context) {
@@ -268,20 +319,42 @@ class _MonthView extends StatelessWidget {
       onPageChanged: onPageChanged,
       calendarFormat: CalendarFormat.month,
       eventLoader: (day) {
-        return markedDays.any((d) => isSameDay(d, day)) ? ['entry'] : [];
+        final info = markers[_dateOnly(day)];
+        return info != null && info.hasEntries ? ['entry'] : [];
       },
       calendarBuilders: CalendarBuilders(
         markerBuilder: (context, day, events) {
           if (events.isEmpty) return null;
+          final info = markers[_dateOnly(day)];
+          final colors = info?.colors.toList() ?? [];
+          if (colors.isEmpty) {
+            return Positioned(
+              bottom: 1,
+              child: Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+            );
+          }
           return Positioned(
             bottom: 1,
-            child: Container(
-              width: 6,
-              height: 6,
-              decoration: const BoxDecoration(
-                color: Colors.blue,
-                shape: BoxShape.circle,
-              ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: colors.take(3).map((color) {
+                return Container(
+                  width: 6,
+                  height: 6,
+                  margin: const EdgeInsets.symmetric(horizontal: 1),
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                );
+              }).toList(),
             ),
           );
         },
@@ -290,7 +363,7 @@ class _MonthView extends StatelessWidget {
   }
 }
 
-class _WeekView extends ConsumerWidget {
+class _WeekView extends ConsumerStatefulWidget {
   const _WeekView({
     required this.workplace,
     required this.focusedDay,
@@ -302,20 +375,118 @@ class _WeekView extends ConsumerWidget {
   final ValueChanged<DateTime> onDaySelected;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final start = focusedDay.subtract(Duration(days: focusedDay.weekday - 1));
+  ConsumerState<_WeekView> createState() => _WeekViewState();
+}
+
+class _WeekViewState extends ConsumerState<_WeekView> {
+  Map<DateTime, _DayMarkerInfo> _weekData = {};
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadWeek();
+  }
+
+  @override
+  void didUpdateWidget(covariant _WeekView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusedDay != widget.focusedDay ||
+        oldWidget.workplace.id != widget.workplace.id) {
+      _loadWeek();
+    }
+  }
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  Future<void> _loadWeek() async {
+    setState(() => _loading = true);
+    final start = widget.focusedDay
+        .subtract(Duration(days: widget.focusedDay.weekday - 1));
+    final end = start.add(const Duration(days: 6));
+    final entries = await DatabaseHelper.instance.getEntries(
+      workplaceId: widget.workplace.id,
+      start: start,
+      end: end,
+    );
+    final projects = await DatabaseHelper.instance
+        .getProjectsForWorkplace(widget.workplace.id);
+    final projectColors = {
+      for (final p in projects) p.id: projectColor(p.colorValue),
+    };
+
+    final data = <DateTime, _DayMarkerInfo>{};
+    for (final entry in entries) {
+      final day = _dateOnly(entry.date);
+      final info = data.putIfAbsent(day, () => _DayMarkerInfo());
+      info.earned += entry.earned;
+      info.hasEntries = true;
+      if (entry.projectId != null) {
+        info.colors.add(
+          projectColors[entry.projectId] ?? projectColorPalette.first,
+        );
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        _weekData = data;
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen(refreshTriggerProvider, (_, __) => _loadWeek());
+
+    final start = widget.focusedDay
+        .subtract(Duration(days: widget.focusedDay.weekday - 1));
     final days = List.generate(7, (i) => start.add(Duration(days: i)));
+
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
       itemCount: days.length,
       itemBuilder: (context, index) {
         final day = days[index];
+        final info = _weekData[_dateOnly(day)];
+        final hasEntries = info?.hasEntries ?? false;
+
         return Card(
           child: ListTile(
+            leading: hasEntries
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (info!.colors.isNotEmpty)
+                        ...info.colors.take(3).map(
+                              (c) => Padding(
+                                padding: const EdgeInsets.only(right: 4),
+                                child: CircleAvatar(
+                                  radius: 5,
+                                  backgroundColor: c,
+                                ),
+                              ),
+                            )
+                      else
+                        CircleAvatar(
+                          radius: 5,
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                        ),
+                    ],
+                  )
+                : const SizedBox(width: 24),
             title: Text(AppFormatters.date(day)),
+            subtitle: hasEntries && info != null
+                ? Text('Verdient: ${AppFormatters.money(info.earned)}')
+                : const Text('Keine Einträge'),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => onDaySelected(day),
+            onTap: () => widget.onDaySelected(day),
           ),
         );
       },
@@ -328,57 +499,82 @@ class _DayView extends ConsumerWidget {
     required this.workplace,
     required this.day,
     required this.onAdd,
+    required this.onPreviousDay,
+    required this.onNextDay,
   });
 
   final Workplace workplace;
   final DateTime day;
   final VoidCallback onAdd;
+  final VoidCallback onPreviousDay;
+  final VoidCallback onNextDay;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final entriesAsync = ref.watch(
-      FutureProvider((ref) async {
-        return DatabaseHelper.instance.getEntriesForDay(workplace.id, day);
-      }),
-    );
+    final query = DayQuery(workplaceId: workplace.id, day: day);
+    final entriesAsync = ref.watch(dayEntriesProvider(query));
+    final projectsAsync = ref.watch(projectsProvider(workplace.id));
 
     return entriesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Fehler: $e')),
-      data: (entries) => Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text(
-              AppFormatters.date(day),
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-          ),
-          Expanded(
-            child: entries.isEmpty
-                ? const Center(child: Text('Keine Einträge.'))
-                : ListView(
-                    children: entries
-                        .map(
-                          (entry) => _EntryTile(
-                            entry: entry,
-                            workplace: workplace,
-                            onChanged: () => bumpRefresh(ref),
-                          ),
-                        )
-                        .toList(),
+      data: (entries) {
+        final projects = projectsAsync.valueOrNull ?? <Project>[];
+        final projectMap = {for (final p in projects) p.id: p};
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: onPreviousDay,
+                    icon: const Icon(Icons.chevron_left),
                   ),
-          ),
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: FilledButton.icon(
-              onPressed: onAdd,
-              icon: const Icon(Icons.add),
-              label: const Text('Eintrag hinzufügen'),
+                  Expanded(
+                    child: Text(
+                      AppFormatters.date(day),
+                      style: Theme.of(context).textTheme.titleLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: onNextDay,
+                    icon: const Icon(Icons.chevron_right),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
+            Expanded(
+              child: entries.isEmpty
+                  ? const Center(child: Text('Keine Einträge.'))
+                  : ListView(
+                      children: entries
+                          .map(
+                            (entry) => _EntryTile(
+                              entry: entry,
+                              workplace: workplace,
+                              project: entry.projectId != null
+                                  ? projectMap[entry.projectId]
+                                  : null,
+                              onChanged: () => bumpRefresh(ref),
+                            ),
+                          )
+                          .toList(),
+                    ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: FilledButton.icon(
+                onPressed: onAdd,
+                icon: const Icon(Icons.add),
+                label: const Text('Eintrag hinzufügen'),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }
@@ -387,22 +583,32 @@ class _EntryTile extends ConsumerWidget {
   const _EntryTile({
     required this.entry,
     required this.workplace,
+    this.project,
     required this.onChanged,
   });
 
   final TimeEntry entry;
   final Workplace workplace;
+  final Project? project;
   final VoidCallback onChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final color = project != null
+        ? projectColor(project!.colorValue)
+        : Theme.of(context).colorScheme.outline;
+
     return Card(
       child: ListTile(
+        leading: CircleAvatar(
+          radius: 6,
+          backgroundColor: color,
+        ),
         title: Text(
           '${AppFormatters.time(entry.startTime)} – ${AppFormatters.time(entry.endTime)}',
         ),
         subtitle: Text(
-          '${AppFormatters.hours(entry.hours)} • ${AppFormatters.money(entry.earned)}${entry.notes.isNotEmpty ? '\n${entry.notes}' : ''}',
+          '${project != null ? '${project!.name} • ' : ''}${AppFormatters.hours(entry.hours)} • ${AppFormatters.money(entry.earned)}${entry.notes.isNotEmpty ? '\n${entry.notes}' : ''}',
         ),
         onTap: () async {
           await showTimeEntryForm(

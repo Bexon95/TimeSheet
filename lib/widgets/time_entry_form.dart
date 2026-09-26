@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/models.dart';
 import '../providers/providers.dart';
 import '../services/formatters.dart';
+import '../utils/project_colors.dart';
 
 class TimeEntryFormSheet extends ConsumerStatefulWidget {
   const TimeEntryFormSheet({
@@ -92,6 +93,13 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
     _rateController = TextEditingController(text: _rate.toStringAsFixed(2));
     _projectId = entry?.projectId;
     _notesController.text = entry?.notes ?? '';
+
+    if (entry == null) {
+      loadLastProjectId(widget.workplace.id).then((id) {
+        if (!mounted || id == null) return;
+        setState(() => _projectId = id);
+      });
+    }
   }
 
   @override
@@ -174,6 +182,7 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
     } else {
       await db.updateEntry(entry);
     }
+    await saveLastProjectId(widget.workplace.id, _projectId);
     bumpRefresh(ref);
     if (mounted) Navigator.pop(context, true);
   }
@@ -203,8 +212,20 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
     );
     if (name == null || name.isEmpty) return;
 
+    final colorIndex =
+        (await ref.read(databaseProvider).getProjectsForWorkplace(
+              widget.workplace.id,
+            ))
+            .length;
+    final color = projectColorPalette[
+        colorIndex % projectColorPalette.length];
     final id = await ref.read(databaseProvider).insertProject(
-          Project(id: 0, workplaceId: widget.workplace.id, name: name),
+          Project(
+            id: 0,
+            workplaceId: widget.workplace.id,
+            name: name,
+            colorValue: colorToValue(color),
+          ),
         );
     bumpRefresh(ref);
     setState(() => _projectId = id);
@@ -317,7 +338,16 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
                         ...projects.map(
                           (p) => DropdownMenuItem(
                             value: p.id,
-                            child: Text(p.name),
+                            child: Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 6,
+                                  backgroundColor: projectColor(p.colorValue),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(p.name),
+                              ],
+                            ),
                           ),
                         ),
                       ],

@@ -1,8 +1,13 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:share_plus/share_plus.dart';
 
+import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
+import '../../widgets/date_range_selector.dart';
 import 'invoice_builder_screen.dart';
 import 'invoice_detail_screen.dart';
 import 'invoice_settings_screen.dart';
@@ -29,6 +34,8 @@ class InvoiceScreen extends ConsumerWidget {
       data: (invoices) => ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          const DateRangeSelector(),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -82,7 +89,21 @@ class InvoiceScreen extends ConsumerWidget {
                   subtitle: Text(
                     '${AppFormatters.date(invoice.createdAt)} • ${invoice.title.isNotEmpty ? invoice.title : invoice.recipientName}',
                   ),
-                  trailing: Text(AppFormatters.money(invoice.amount)),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(AppFormatters.money(invoice.amount)),
+                      PopupMenuButton<String>(
+                        onSelected: (value) =>
+                            _onInvoiceMenu(context, ref, workplace, invoice, value),
+                        itemBuilder: (context) => const [
+                          PopupMenuItem(value: 'share', child: Text('Teilen')),
+                          PopupMenuItem(value: 'edit', child: Text('Bearbeiten')),
+                          PopupMenuItem(value: 'delete', child: Text('Löschen')),
+                        ],
+                      ),
+                    ],
+                  ),
                   onTap: () {
                     Navigator.push(
                       context,
@@ -98,5 +119,69 @@ class InvoiceScreen extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _onInvoiceMenu(
+    BuildContext context,
+    WidgetRef ref,
+    Workplace workplace,
+    SavedInvoice invoice,
+    String action,
+  ) async {
+    switch (action) {
+      case 'share':
+        final file = File(invoice.pdfFilePath);
+        if (!await file.exists()) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('PDF-Datei nicht gefunden.')),
+            );
+          }
+          return;
+        }
+        await SharePlus.instance.share(
+          ShareParams(
+            files: [XFile(file.path)],
+            subject: 'Honorarnote ${invoice.invoiceNumber}',
+          ),
+        );
+      case 'edit':
+        if (!context.mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => InvoiceBuilderScreen(
+              workplace: workplace,
+              existingInvoice: invoice,
+            ),
+          ),
+        );
+        bumpRefresh(ref);
+      case 'delete':
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Rechnung löschen?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Abbrechen'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Löschen'),
+              ),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+
+        final file = File(invoice.pdfFilePath);
+        if (await file.exists()) {
+          await file.delete();
+        }
+        await ref.read(databaseProvider).deleteSavedInvoice(invoice.id);
+        bumpRefresh(ref);
+    }
   }
 }

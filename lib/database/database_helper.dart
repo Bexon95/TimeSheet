@@ -165,6 +165,16 @@ class DatabaseHelper {
     return db.insert('projects', map);
   }
 
+  Future<void> updateProject(Project project) async {
+    final db = await database;
+    await db.update(
+      'projects',
+      project.toMap(),
+      where: 'id = ?',
+      whereArgs: [project.id],
+    );
+  }
+
   Future<void> deleteProject(int id) async {
     final db = await database;
     await db.delete('projects', where: 'id = ?', whereArgs: [id]);
@@ -313,6 +323,16 @@ class DatabaseHelper {
         await db.query('saved_invoices', where: 'id = ?', whereArgs: [id]);
     if (rows.isEmpty) return null;
     return SavedInvoice.fromMap(rows.first);
+  }
+
+  Future<void> updateSavedInvoice(SavedInvoice invoice) async {
+    final db = await database;
+    await db.update(
+      'saved_invoices',
+      invoice.toMap(),
+      where: 'id = ?',
+      whereArgs: [invoice.id],
+    );
   }
 
   Future<void> deleteSavedInvoice(int id) async {

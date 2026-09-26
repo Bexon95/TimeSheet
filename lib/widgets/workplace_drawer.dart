@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/models.dart';
 import '../providers/providers.dart';
 import '../screens/invoice/invoice_settings_screen.dart';
+import 'workplace_projects_editor.dart';
 
 class WorkplaceDrawer extends ConsumerStatefulWidget {
   const WorkplaceDrawer({super.key});
@@ -111,6 +112,7 @@ class _WorkplaceDrawerState extends ConsumerState<WorkplaceDrawer> {
                 );
               },
             ),
+            const _ThemeModeTile(),
             const _AppVersionFooter(),
           ],
         ),
@@ -166,6 +168,10 @@ class _WorkplaceDrawerState extends ConsumerState<WorkplaceDrawer> {
                 ),
                 maxLines: 3,
               ),
+              if (workplace != null) ...[
+                const SizedBox(height: 16),
+                WorkplaceProjectsEditor(workplaceId: workplace.id),
+              ],
             ],
           ),
         ),
@@ -249,6 +255,41 @@ class _WorkplaceDrawerState extends ConsumerState<WorkplaceDrawer> {
       await ref.read(appStateProvider.notifier).selectWorkplace(null);
     }
     bumpRefresh(ref);
+  }
+}
+
+class _ThemeModeTile extends ConsumerWidget {
+  const _ThemeModeTile();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+
+    return ListTile(
+      leading: Icon(
+        switch (mode) {
+          ThemeMode.dark => Icons.dark_mode,
+          ThemeMode.light => Icons.light_mode,
+          ThemeMode.system => Icons.brightness_auto,
+        },
+      ),
+      title: const Text('Erscheinungsbild'),
+      subtitle: Text(
+        switch (mode) {
+          ThemeMode.dark => 'Dunkel',
+          ThemeMode.light => 'Hell',
+          ThemeMode.system => 'System',
+        },
+      ),
+      onTap: () async {
+        final next = switch (mode) {
+          ThemeMode.system => AppThemeMode.light,
+          ThemeMode.light => AppThemeMode.dark,
+          ThemeMode.dark => AppThemeMode.system,
+        };
+        await ref.read(themeModeProvider.notifier).setMode(next);
+      },
+    );
   }
 }
 

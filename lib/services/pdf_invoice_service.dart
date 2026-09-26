@@ -8,6 +8,17 @@ import '../database/models.dart';
 import 'formatters.dart';
 
 class PdfInvoiceService {
+  static const _defaultPaymentText = 'Bitte um Überweisung auf mein Konto';
+
+  static String paymentTextFor(InvoiceSettings settings) {
+    final text = settings.paymentText.trim();
+    if (text.isNotEmpty) return text;
+    if (settings.iban.isNotEmpty || settings.bic.isNotEmpty) {
+      return _defaultPaymentText;
+    }
+    return '';
+  }
+
   static List<String> senderLinesFrom({
     required String snapshot,
     required InvoiceSettings settings,
@@ -57,6 +68,7 @@ class PdfInvoiceService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(48),
         build: (context) {
+          final paymentLine = paymentTextFor(settings);
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
@@ -117,14 +129,15 @@ class PdfInvoiceService {
                   pw.Text(AppFormatters.money(invoice.amount)),
                 ],
               ),
+              pw.SizedBox(height: 4),
+              pw.Divider(),
               pw.SizedBox(height: 24),
               if (settings.vatText.isNotEmpty) pw.Text(settings.vatText),
-              if (settings.paymentText.isNotEmpty ||
+              if (paymentLine.isNotEmpty ||
                   settings.iban.isNotEmpty ||
                   settings.bic.isNotEmpty) ...[
                 pw.SizedBox(height: 12),
-                if (settings.paymentText.isNotEmpty)
-                  pw.Text(settings.paymentText),
+                if (paymentLine.isNotEmpty) pw.Text(paymentLine),
                 if (settings.iban.isNotEmpty)
                   pw.Padding(
                     padding: const pw.EdgeInsets.only(left: 24, top: 4),
