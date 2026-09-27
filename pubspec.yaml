@@ -1,7 +1,7 @@
 name: timesheet
 description: Local time tracking app for workplaces, projects, and invoices.
 publish_to: "none"
-version: 1.1.1+5
+version: 1.1.1+6
 
 environment:
   sdk: ^3.13.0
@@ -30,6 +30,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/app_icon.png
 
 flutter:
   uses-material-design: true

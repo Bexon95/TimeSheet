@@ -3,13 +3,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import '../services/formatters.dart';
+import 'workplace_filter_chips.dart';
 
 class DateRangeSelector extends ConsumerWidget {
-  const DateRangeSelector({super.key});
+  const DateRangeSelector({
+    super.key,
+    this.showWorkplaceFilter = false,
+    this.filterWorkplaceId,
+    this.onFilterWorkplaceChanged,
+  });
+
+  final bool showWorkplaceFilter;
+  final int? filterWorkplaceId;
+  final ValueChanged<int?>? onFilterWorkplaceChanged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final range = ref.watch(appStateProvider).dateRange;
+    final appState = ref.watch(appStateProvider);
+    final range = appState.dateRange;
+    final workplaces = appState.workplaces;
 
     return Card(
       child: Padding(
@@ -23,29 +35,44 @@ class DateRangeSelector extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _QuickChip(
-                  label: 'Woche',
-                  onTap: () => _setQuickRange(ref, 7),
-                ),
-                _QuickChip(
-                  label: '2 Wochen',
-                  onTap: () => _setQuickRange(ref, 14),
-                ),
-                _QuickChip(
-                  label: 'Monat',
-                  onTap: () => _setMonth(ref),
-                ),
-                ActionChip(
-                  label: const Text('Benutzerdefiniert'),
-                  onPressed: () => _pickCustom(context, ref),
-                ),
-              ],
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _QuickChip(
+                    label: 'Woche',
+                    onTap: () => _setQuickRange(ref, 7),
+                  ),
+                  const SizedBox(width: 8),
+                  _QuickChip(
+                    label: '2 Wochen',
+                    onTap: () => _setQuickRange(ref, 14),
+                  ),
+                  const SizedBox(width: 8),
+                  _QuickChip(
+                    label: 'Monat',
+                    onTap: () => _setMonth(ref),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onLongPress: () => _pickCustom(context, ref),
+                    child: ActionChip(
+                      label: const Text('Benutzerdefiniert'),
+                      onPressed: () => _applyOrPickCustom(context, ref),
+                    ),
+                  ),
+                ],
+              ),
             ),
+            if (showWorkplaceFilter &&
+                onFilterWorkplaceChanged != null) ...[
+              const SizedBox(height: 8),
+              WorkplaceFilterChips(
+                workplaces: workplaces,
+                selectedWorkplaceId: filterWorkplaceId,
+                onSelected: onFilterWorkplaceChanged!,
+              ),
+            ],
           ],
         ),
       ),
@@ -73,17 +100,27 @@ class DateRangeSelector extends ConsumerWidget {
         );
   }
 
+  Future<void> _applyOrPickCustom(BuildContext context, WidgetRef ref) async {
+    final saved = ref.read(appStateProvider).savedCustomDateRange;
+    if (saved != null) {
+      await ref.read(appStateProvider.notifier).setDateRange(saved);
+      return;
+    }
+    await _pickCustom(context, ref);
+  }
+
   Future<void> _pickCustom(BuildContext context, WidgetRef ref) async {
-    final current = ref.read(appStateProvider).dateRange;
+    final appState = ref.read(appStateProvider);
+    final initial = appState.savedCustomDateRange ?? appState.dateRange;
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
-      initialDateRange: DateTimeRange(start: current.start, end: current.end),
+      initialDateRange: DateTimeRange(start: initial.start, end: initial.end),
       locale: const Locale('de', 'DE'),
     );
     if (picked != null) {
-      await ref.read(appStateProvider.notifier).setDateRange(
+      await ref.read(appStateProvider.notifier).setCustomDateRange(
             DateRange(start: picked.start, end: picked.end),
           );
     }

@@ -1,8 +1,6 @@
 import '../database/models.dart';
 import 'formatters.dart';
 
-enum ChartBucket { day, week, month }
-
 class ChartDataPoint {
   ChartDataPoint({
     required this.label,
@@ -20,19 +18,11 @@ class ChartDataPoint {
 }
 
 class StatsAggregation {
-  static ChartBucket bucketForRange(DateTime start, DateTime end) {
-    final days = end.difference(start).inDays + 1;
-    if (days <= 14) return ChartBucket.day;
-    if (days <= 90) return ChartBucket.week;
-    return ChartBucket.month;
-  }
-
   static List<ChartDataPoint> aggregate(
     List<TimeEntry> entries,
     DateTime rangeStart,
     DateTime rangeEnd,
   ) {
-    final bucket = bucketForRange(rangeStart, rangeEnd);
     final buckets = <String, ChartDataPoint>{};
 
     for (final entry in entries) {
@@ -41,25 +31,9 @@ class StatsAggregation {
         continue;
       }
 
-      late DateTime bucketStart;
-      late DateTime bucketEnd;
-      late String label;
-
-      switch (bucket) {
-        case ChartBucket.day:
-          bucketStart = keyDate;
-          bucketEnd = keyDate;
-          label = AppFormatters.shortDate(keyDate);
-        case ChartBucket.week:
-          final weekday = keyDate.weekday;
-          bucketStart = keyDate.subtract(Duration(days: weekday - 1));
-          bucketEnd = bucketStart.add(const Duration(days: 6));
-          label = AppFormatters.shortDate(bucketStart);
-        case ChartBucket.month:
-          bucketStart = DateTime(keyDate.year, keyDate.month, 1);
-          bucketEnd = DateTime(keyDate.year, keyDate.month + 1, 0);
-          label = '${keyDate.month.toString().padLeft(2, '0')}/${keyDate.year % 100}';
-      }
+      final bucketStart = keyDate;
+      final bucketEnd = keyDate;
+      final label = AppFormatters.shortDate(keyDate);
 
       final key = bucketStart.toIso8601String();
       final existing = buckets[key];

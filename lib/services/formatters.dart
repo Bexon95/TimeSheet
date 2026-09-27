@@ -8,6 +8,7 @@ class AppFormatters {
   );
 
   static final _hours = NumberFormat.decimalPattern('de_DE');
+  static final _chartInteger = NumberFormat('#,##0', 'de_DE');
 
   static final _date = DateFormat('dd.MM.yyyy', 'de_DE');
   static final _dateTime = DateFormat('dd.MM.yyyy HH:mm', 'de_DE');
@@ -26,6 +27,12 @@ class AppFormatters {
 
   static String hoursDecimal(double hours) =>
       '${_hours.format(hours)} Std.';
+
+  /// Compact whole-number labels for chart axes (no currency, no decimals).
+  static String chartAxisNumber(double value) {
+    if (value.abs() < 0.5) return '0';
+    return _chartInteger.format(value.round());
+  }
 
   static String date(DateTime date) => _date.format(date);
   static String dateTime(DateTime date) => _dateTime.format(date);

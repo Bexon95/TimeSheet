@@ -33,7 +33,7 @@ class InvoiceDetailScreen extends ConsumerWidget {
             Text(invoice.title, style: Theme.of(context).textTheme.titleMedium),
             const SizedBox(height: 8),
           ],
-          ...invoice.bulletLines.map((line) => Text('• $line')),
+          ...invoice.bulletLines.map((line) => Text('- $line')),
           const SizedBox(height: 12),
           Text(
             AppFormatters.money(invoice.amount),

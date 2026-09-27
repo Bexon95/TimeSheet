@@ -115,7 +115,7 @@ class PdfInvoiceService {
                   child: pw.Row(
                     crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Text('• '),
+                      pw.Text('- '),
                       pw.Expanded(child: pw.Text(line)),
                     ],
                   ),

@@ -14,7 +14,7 @@ class TimeEntryFormSheet extends ConsumerStatefulWidget {
     this.initialDate,
     this.initialStart,
     this.initialEnd,
-    this.defaultMidnight = false,
+    this.defaultNoon = false,
     this.source = EntrySource.manual,
   });
 
@@ -23,7 +23,7 @@ class TimeEntryFormSheet extends ConsumerStatefulWidget {
   final DateTime? initialDate;
   final DateTime? initialStart;
   final DateTime? initialEnd;
-  final bool defaultMidnight;
+  final bool defaultNoon;
   final EntrySource source;
 
   @override
@@ -80,9 +80,9 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
     } else {
       _startDate = widget.initialDate ?? today;
       _endDate = widget.initialDate ?? today;
-      if (widget.defaultMidnight) {
-        _start = const TimeOfDay(hour: 0, minute: 0);
-        _end = const TimeOfDay(hour: 0, minute: 30);
+      if (widget.defaultNoon) {
+        _start = const TimeOfDay(hour: 12, minute: 0);
+        _end = const TimeOfDay(hour: 12, minute: 30);
       } else {
         _start = TimeOfDay(hour: now.hour, minute: now.minute);
         _end = _addMinutes(_start, 30);
@@ -386,7 +386,7 @@ Future<bool?> showTimeEntryForm(
   DateTime? initialDate,
   DateTime? initialStart,
   DateTime? initialEnd,
-  bool defaultMidnight = false,
+  bool defaultNoon = false,
   EntrySource source = EntrySource.manual,
 }) {
   return showModalBottomSheet<bool>(
@@ -398,7 +398,7 @@ Future<bool?> showTimeEntryForm(
       initialDate: initialDate,
       initialStart: initialStart,
       initialEnd: initialEnd,
-      defaultMidnight: defaultMidnight,
+      defaultNoon: defaultNoon,
       source: source,
     ),
   );

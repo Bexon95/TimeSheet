@@ -7,12 +7,6 @@ void main() {
   setUpAll(() async {
     await initializeDateFormatting('de_DE', null);
   });
-  test('bucketForRange picks day for short ranges', () {
-    final start = DateTime(2026, 1, 1);
-    final end = DateTime(2026, 1, 10);
-    expect(StatsAggregation.bucketForRange(start, end), ChartBucket.day);
-  });
-
   test('aggregate sums hours per day', () {
     final start = DateTime(2026, 1, 1);
     final end = DateTime(2026, 1, 2);
@@ -39,5 +33,33 @@ void main() {
     expect(points.length, 2);
     expect(points.first.hours, 2);
     expect(points.last.hours, 1.5);
+  });
+
+  test('aggregate keeps one bar per calendar day for long ranges', () {
+    final start = DateTime(2026, 1, 1);
+    final end = DateTime(2026, 3, 31);
+    final entries = [
+      TimeEntry(
+        id: 1,
+        workplaceId: 1,
+        date: DateTime(2026, 1, 5),
+        startTime: DateTime(2026, 1, 5, 9),
+        endTime: DateTime(2026, 1, 5, 10),
+        hourlyRate: 60,
+      ),
+      TimeEntry(
+        id: 2,
+        workplaceId: 1,
+        date: DateTime(2026, 2, 10),
+        startTime: DateTime(2026, 2, 10, 14),
+        endTime: DateTime(2026, 2, 10, 16),
+        hourlyRate: 60,
+      ),
+    ];
+
+    final points = StatsAggregation.aggregate(entries, start, end);
+    expect(points.length, 2);
+    expect(points.first.label, '05.01.');
+    expect(points.last.label, '10.02.');
   });
 }

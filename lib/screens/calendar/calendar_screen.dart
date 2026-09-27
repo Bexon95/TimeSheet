@@ -23,6 +23,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, _DayMarkerInfo> _markers = {};
+  double _monthHours = 0;
+  double _monthEarned = 0;
 
   @override
   void initState() {
@@ -51,19 +53,41 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
     };
 
     final markers = <DateTime, _DayMarkerInfo>{};
+    var monthHours = 0.0;
+    var monthEarned = 0.0;
     for (final entry in entries) {
+      monthHours += entry.hours;
+      monthEarned += entry.earned;
+
       final day = _dateOnly(entry.date);
       final info = markers.putIfAbsent(day, () => _DayMarkerInfo());
       info.earned += entry.earned;
+      info.hours += entry.hours;
       info.hasEntries = true;
-      if (entry.projectId != null) {
-        final c = projectColors[entry.projectId];
-        if (c != null) info.colors.add(c);
-      }
+      final color = entry.projectId != null
+          ? (projectColors[entry.projectId] ?? projectColorPalette.first)
+          : projectColorPalette.first;
+      info.colors.add(color);
+      info.entryPreviews.add(
+        _DayEntryPreview(
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          color: color,
+        ),
+      );
+    }
+    for (final info in markers.values) {
+      info.entryPreviews.sort(
+        (a, b) => a.startTime.compareTo(b.startTime),
+      );
     }
 
     if (mounted) {
-      setState(() => _markers = markers);
+      setState(() {
+        _markers = markers;
+        _monthHours = monthHours;
+        _monthEarned = monthEarned;
+      });
     }
   }
 
@@ -110,6 +134,8 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
                 focusedDay: _focusedDay,
                 selectedDay: _selectedDay,
                 markers: _markers,
+                monthHours: _monthHours,
+                monthEarned: _monthEarned,
                 onDaySelected: (day) {
                   setState(() {
                     _selectedDay = day;
@@ -168,10 +194,24 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   }
 }
 
+class _DayEntryPreview {
+  const _DayEntryPreview({
+    required this.startTime,
+    required this.endTime,
+    required this.color,
+  });
+
+  final DateTime startTime;
+  final DateTime endTime;
+  final Color color;
+}
+
 class _DayMarkerInfo {
   bool hasEntries = false;
   double earned = 0;
+  double hours = 0;
   final Set<Color> colors = {};
+  final List<_DayEntryPreview> entryPreviews = [];
 }
 
 class _DaySheet extends ConsumerStatefulWidget {
@@ -271,6 +311,7 @@ class _DaySheetState extends ConsumerState<_DaySheet> {
                   context,
                   workplace: widget.workplace,
                   initialDate: widget.day,
+                  defaultNoon: true,
                 );
                 bumpRefresh(ref);
                 widget.onMarkersChanged();
@@ -290,6 +331,8 @@ class _MonthView extends StatelessWidget {
     required this.focusedDay,
     required this.selectedDay,
     required this.markers,
+    required this.monthHours,
+    required this.monthEarned,
     required this.onDaySelected,
     required this.onPageChanged,
   });
@@ -297,62 +340,253 @@ class _MonthView extends StatelessWidget {
   final DateTime focusedDay;
   final DateTime? selectedDay;
   final Map<DateTime, _DayMarkerInfo> markers;
+  final double monthHours;
+  final double monthEarned;
   final ValueChanged<DateTime> onDaySelected;
   final ValueChanged<DateTime> onPageChanged;
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
-  @override
-  Widget build(BuildContext context) {
-    return TableCalendar(
-      locale: 'de_DE',
-      firstDay: DateTime(2020),
-      lastDay: DateTime(2100),
-      focusedDay: focusedDay,
-      selectedDayPredicate: (day) => isSameDay(selectedDay, day),
-      onDaySelected: (selected, focused) => onDaySelected(selected),
-      onPageChanged: onPageChanged,
-      calendarFormat: CalendarFormat.month,
-      eventLoader: (day) {
-        final info = markers[_dateOnly(day)];
-        return info != null && info.hasEntries ? ['entry'] : [];
-      },
-      calendarBuilders: CalendarBuilders(
-        markerBuilder: (context, day, events) {
-          if (events.isEmpty) return null;
-          final info = markers[_dateOnly(day)];
-          final colors = info?.colors.toList() ?? [];
-          if (colors.isEmpty) {
-            return Positioned(
-              bottom: 1,
-              child: Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary,
-                  shape: BoxShape.circle,
+  Widget _buildDayCell(
+    BuildContext context,
+    DateTime day,
+    DateTime focusedMonth, {
+    required bool isSelected,
+    required bool isToday,
+    required bool isOutside,
+  }) {
+    final info = markers[_dateOnly(day)];
+    final previews = info?.entryPreviews ?? const <_DayEntryPreview>[];
+    final colorScheme = Theme.of(context).colorScheme;
+
+    final dayNumberColor = isSelected
+        ? colorScheme.onPrimary
+        : isOutside
+            ? colorScheme.onSurface.withValues(alpha: 0.38)
+            : colorScheme.onSurface;
+
+    Decoration? decoration;
+    if (isSelected) {
+      decoration = BoxDecoration(
+        color: colorScheme.primary,
+        borderRadius: BorderRadius.circular(4),
+      );
+    } else if (isToday) {
+      decoration = BoxDecoration(
+        color: colorScheme.primaryContainer.withValues(alpha: 0.55),
+        borderRadius: BorderRadius.circular(4),
+      );
+    }
+
+    const maxVisible = 4;
+    final visible = previews.take(maxVisible).toList();
+    final hiddenCount = previews.length - visible.length;
+
+    return SizedBox.expand(
+      child: Container(
+        margin: const EdgeInsets.all(1),
+        decoration: decoration,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              '${day.day}',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: dayNumberColor,
+              ),
+            ),
+          ),
+          if (previews.isNotEmpty)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(1, 0, 1, 1),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (final preview in visible)
+                      _MonthEntryChip(
+                        preview: preview,
+                        onPrimaryBackground: isSelected,
+                      ),
+                    if (hiddenCount > 0)
+                      Text(
+                        '+$hiddenCount',
+                        style: TextStyle(
+                          fontSize: 8,
+                          color: dayNumberColor.withValues(alpha: 0.85),
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            );
-          }
-          return Positioned(
-            bottom: 1,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: colors.take(3).map((color) {
-                return Container(
-                  width: 6,
-                  height: 6,
-                  margin: const EdgeInsets.symmetric(horizontal: 1),
-                  decoration: BoxDecoration(
-                    color: color,
-                    shape: BoxShape.circle,
-                  ),
-                );
-              }).toList(),
             ),
-          );
-        },
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: TableCalendar(
+            locale: 'de_DE',
+            firstDay: DateTime(2020),
+            lastDay: DateTime(2100),
+            focusedDay: focusedDay,
+            selectedDayPredicate: (day) => isSameDay(selectedDay, day),
+            onDaySelected: (selected, focused) => onDaySelected(selected),
+            onPageChanged: onPageChanged,
+            calendarFormat: CalendarFormat.month,
+            shouldFillViewport: true,
+            rowHeight: 72,
+            headerStyle: const HeaderStyle(formatButtonVisible: false),
+            calendarStyle: CalendarStyle(
+              cellMargin: EdgeInsets.zero,
+              cellPadding: EdgeInsets.zero,
+              cellAlignment: Alignment.topCenter,
+              outsideDaysVisible: true,
+              defaultDecoration: const BoxDecoration(),
+              outsideDecoration: const BoxDecoration(),
+              weekendDecoration: const BoxDecoration(),
+              disabledDecoration: const BoxDecoration(),
+              holidayDecoration: const BoxDecoration(),
+              todayDecoration: const BoxDecoration(),
+              selectedDecoration: const BoxDecoration(),
+              defaultTextStyle: TextStyle(color: colorScheme.onSurface),
+              outsideTextStyle: TextStyle(
+                color: colorScheme.onSurface.withValues(alpha: 0.38),
+              ),
+            ),
+            calendarBuilders: CalendarBuilders(
+              defaultBuilder: (context, day, focusedMonth) => _buildDayCell(
+                context,
+                day,
+                focusedMonth,
+                isSelected: false,
+                isToday: isSameDay(day, DateTime.now()),
+                isOutside: day.month != focusedMonth.month,
+              ),
+              todayBuilder: (context, day, focusedMonth) => _buildDayCell(
+                context,
+                day,
+                focusedMonth,
+                isSelected: isSameDay(selectedDay, day),
+                isToday: true,
+                isOutside: day.month != focusedMonth.month,
+              ),
+              selectedBuilder: (context, day, focusedMonth) => _buildDayCell(
+                context,
+                day,
+                focusedMonth,
+                isSelected: true,
+                isToday: isSameDay(day, DateTime.now()),
+                isOutside: day.month != focusedMonth.month,
+              ),
+              outsideBuilder: (context, day, focusedMonth) => _buildDayCell(
+                context,
+                day,
+                focusedMonth,
+                isSelected: isSameDay(selectedDay, day),
+                isToday: isSameDay(day, DateTime.now()),
+                isOutside: true,
+              ),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    AppFormatters.monthYear(focusedDay),
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Stunden'),
+                            Text(
+                              AppFormatters.hours(monthHours),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Verdienst'),
+                            Text(
+                              AppFormatters.money(monthEarned),
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MonthEntryChip extends StatelessWidget {
+  const _MonthEntryChip({
+    required this.preview,
+    required this.onPrimaryBackground,
+  });
+
+  final _DayEntryPreview preview;
+  final bool onPrimaryBackground;
+
+  @override
+  Widget build(BuildContext context) {
+    final label =
+        '${AppFormatters.time(preview.startTime)}–${AppFormatters.time(preview.endTime)}';
+    final textColor = onPrimaryBackground
+        ? Theme.of(context).colorScheme.onPrimary
+        : Theme.of(context).colorScheme.onSurface;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 1),
+      decoration: BoxDecoration(
+        color: preview.color.withValues(alpha: onPrimaryBackground ? 0.35 : 0.22),
+        borderRadius: BorderRadius.circular(2),
+        border: Border(
+          left: BorderSide(color: preview.color, width: 2),
+        ),
+      ),
+      child: Text(
+        label,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 8, height: 1.1, color: textColor),
       ),
     );
   }

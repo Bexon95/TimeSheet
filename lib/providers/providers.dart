@@ -131,6 +131,8 @@ class AppStateNotifier extends StateNotifier<AppState> {
     final selectedId = prefs.getInt('selected_workplace_id');
     final rangeStart = prefs.getString('date_range_start');
     final rangeEnd = prefs.getString('date_range_end');
+    final customStart = prefs.getString('custom_date_range_start');
+    final customEnd = prefs.getString('custom_date_range_end');
     final timer = await _timerService.getActiveTimer();
 
     final now = DateTime.now();
@@ -147,6 +149,12 @@ class AppStateNotifier extends StateNotifier<AppState> {
             : monthStart,
         end: rangeEnd != null ? DateTime.parse(rangeEnd) : monthEnd,
       ),
+      savedCustomDateRange: customStart != null && customEnd != null
+          ? DateRange(
+              start: DateTime.parse(customStart),
+              end: DateTime.parse(customEnd),
+            )
+          : null,
       activeTimer: timer,
       isLoading: false,
     );
@@ -169,6 +177,27 @@ class AppStateNotifier extends StateNotifier<AppState> {
 
   Future<void> setDateRange(DateRange range) async {
     state = state.copyWith(dateRange: range);
+    await _persistActiveDateRange(range);
+  }
+
+  Future<void> setCustomDateRange(DateRange range) async {
+    state = state.copyWith(
+      dateRange: range,
+      savedCustomDateRange: range,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(
+      'custom_date_range_start',
+      range.start.toIso8601String().split('T').first,
+    );
+    await prefs.setString(
+      'custom_date_range_end',
+      range.end.toIso8601String().split('T').first,
+    );
+    await _persistActiveDateRange(range);
+  }
+
+  Future<void> _persistActiveDateRange(DateRange range) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
       'date_range_start',
@@ -203,6 +232,7 @@ class AppState {
     required this.workplaces,
     this.selectedWorkplaceId,
     required this.dateRange,
+    this.savedCustomDateRange,
     this.activeTimer,
     this.isLoading = true,
   });
@@ -210,6 +240,7 @@ class AppState {
   final List<Workplace> workplaces;
   final int? selectedWorkplaceId;
   final DateRange dateRange;
+  final DateRange? savedCustomDateRange;
   final ActiveTimer? activeTimer;
   final bool isLoading;
 
@@ -226,6 +257,8 @@ class AppState {
     int? selectedWorkplaceId,
     bool clearWorkplace = false,
     DateRange? dateRange,
+    DateRange? savedCustomDateRange,
+    bool clearSavedCustomDateRange = false,
     ActiveTimer? activeTimer,
     bool clearTimer = false,
     bool? isLoading,
@@ -235,6 +268,9 @@ class AppState {
       selectedWorkplaceId:
           clearWorkplace ? null : (selectedWorkplaceId ?? this.selectedWorkplaceId),
       dateRange: dateRange ?? this.dateRange,
+      savedCustomDateRange: clearSavedCustomDateRange
+          ? null
+          : (savedCustomDateRange ?? this.savedCustomDateRange),
       activeTimer: clearTimer ? null : (activeTimer ?? this.activeTimer),
       isLoading: isLoading ?? this.isLoading,
     );

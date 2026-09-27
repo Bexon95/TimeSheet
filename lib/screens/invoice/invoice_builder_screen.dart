@@ -322,7 +322,15 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
           Text('Leistungsbeschreibung', style: Theme.of(context).textTheme.titleSmall),
           ...List.generate(_bulletControllers.length, (index) {
             return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Padding(
+                  padding: const EdgeInsets.only(top: 16, right: 8),
+                  child: Text(
+                    '-',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
                 Expanded(
                   child: TextField(
                     controller: _bulletControllers[index],

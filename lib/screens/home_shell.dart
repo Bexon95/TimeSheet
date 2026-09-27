@@ -63,47 +63,48 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           ),
         ],
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showPlusMenu,
-        child: const Icon(Icons.add),
-      ),
-      bottomNavigationBar: BottomAppBar(
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 6,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NavItem(
-              icon: Icons.dashboard_outlined,
-              selectedIcon: Icons.dashboard,
-              label: 'Dashboard',
-              selected: _index == 0,
-              onTap: () => setState(() => _index = 0),
+      bottomNavigationBar: Material(
+        elevation: 2,
+        color: Theme.of(context).colorScheme.surface,
+        child: SafeArea(
+          top: false,
+          child: SizedBox(
+            height: 64,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _NavItem(
+                  icon: Icons.dashboard_outlined,
+                  selectedIcon: Icons.dashboard,
+                  label: 'Dashboard',
+                  selected: _index == 0,
+                  onTap: () => setState(() => _index = 0),
+                ),
+                _NavItem(
+                  icon: Icons.calendar_month_outlined,
+                  selectedIcon: Icons.calendar_month,
+                  label: 'Kalender',
+                  selected: _index == 1,
+                  onTap: () => setState(() => _index = 1),
+                ),
+                _AddNavButton(onPressed: _showPlusMenu),
+                _NavItem(
+                  icon: Icons.bar_chart_outlined,
+                  selectedIcon: Icons.bar_chart,
+                  label: 'Statistik',
+                  selected: _index == 3,
+                  onTap: () => setState(() => _index = 3),
+                ),
+                _NavItem(
+                  icon: Icons.receipt_long_outlined,
+                  selectedIcon: Icons.receipt_long,
+                  label: 'Rechnung',
+                  selected: _index == 4,
+                  onTap: () => setState(() => _index = 4),
+                ),
+              ],
             ),
-            _NavItem(
-              icon: Icons.calendar_month_outlined,
-              selectedIcon: Icons.calendar_month,
-              label: 'Kalender',
-              selected: _index == 1,
-              onTap: () => setState(() => _index = 1),
-            ),
-            const SizedBox(width: 40),
-            _NavItem(
-              icon: Icons.bar_chart_outlined,
-              selectedIcon: Icons.bar_chart,
-              label: 'Statistik',
-              selected: _index == 3,
-              onTap: () => setState(() => _index = 3),
-            ),
-            _NavItem(
-              icon: Icons.receipt_long_outlined,
-              selectedIcon: Icons.receipt_long,
-              label: 'Rechnung',
-              selected: _index == 4,
-              onTap: () => setState(() => _index = 4),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -194,7 +195,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       await showTimeEntryForm(
         context,
         workplace: workplace,
-        defaultMidnight: true,
+        defaultNoon: true,
       );
       bumpRefresh(ref);
     } else if (action == 'manage_quick') {
@@ -219,6 +220,37 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           );
       await ref.read(appStateProvider.notifier).refreshTimer();
     }
+  }
+}
+
+class _AddNavButton extends StatelessWidget {
+  const _AddNavButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Transform.translate(
+      offset: const Offset(0, -4),
+      child: Material(
+        color: colorScheme.primary,
+        elevation: 1,
+        shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
+        shape: const CircleBorder(),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onPressed,
+          customBorder: const CircleBorder(),
+          child: SizedBox(
+            width: 44,
+            height: 44,
+            child: Icon(Icons.add, color: colorScheme.onPrimary, size: 26),
+          ),
+        ),
+      ),
+    );
   }
 }
 
