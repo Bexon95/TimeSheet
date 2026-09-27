@@ -8,10 +8,12 @@ class WorkplaceAppBar extends ConsumerWidget implements PreferredSizeWidget {
     super.key,
     required this.title,
     this.actions,
+    this.subtitleWidget,
   });
 
   final String title;
   final List<Widget>? actions;
+  final Widget? subtitleWidget;
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
@@ -24,19 +26,32 @@ class WorkplaceAppBar extends ConsumerWidget implements PreferredSizeWidget {
         .firstOrNull;
 
     return AppBar(
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            selected?.name ?? 'Kein Arbeitgeber',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.bodySmall,
-          ),
-        ],
-      ),
+      title: subtitleWidget != null
+          ? Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selected?.name ?? 'Kein Arbeitgeber',
+                    style: Theme.of(context).textTheme.titleMedium,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                subtitleWidget!,
+              ],
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  selected?.name ?? 'Kein Arbeitgeber',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+              ],
+            ),
       actions: [
         if (appState.workplaces.length > 1)
           PopupMenuButton<int>(

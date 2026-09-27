@@ -9,6 +9,7 @@ import '../widgets/time_entry_form.dart';
 import '../widgets/timer_banner.dart';
 import '../widgets/workplace_app_bar.dart';
 import '../widgets/workplace_drawer.dart';
+import 'calendar/calendar_view_mode.dart';
 import 'calendar/calendar_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'invoice/invoice_screen.dart';
@@ -45,7 +46,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     final bodyIndex = _index > 2 ? _index - 1 : _index;
 
     return Scaffold(
-      appBar: WorkplaceAppBar(title: _titles[bodyIndex]),
+      appBar: WorkplaceAppBar(
+        title: _titles[bodyIndex],
+        subtitleWidget:
+            bodyIndex == 1 ? const CalendarViewModeMenu() : null,
+      ),
       drawer: const WorkplaceDrawer(),
       body: Column(
         children: [

@@ -8,8 +8,8 @@ import '../../providers/providers.dart';
 import '../../services/formatters.dart';
 import '../../utils/project_colors.dart';
 import '../../widgets/time_entry_form.dart';
-
-enum CalendarViewMode { month, week, day }
+import 'calendar_view_mode.dart';
+import 'week_list_view.dart';
 
 class CalendarScreen extends ConsumerStatefulWidget {
   const CalendarScreen({super.key});
@@ -19,7 +19,6 @@ class CalendarScreen extends ConsumerStatefulWidget {
 }
 
 class _CalendarScreenState extends ConsumerState<CalendarScreen> {
-  CalendarViewMode _mode = CalendarViewMode.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Map<DateTime, _DayMarkerInfo> _markers = {};
@@ -115,66 +114,52 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       );
     }
 
-    return Column(
-      children: [
-        SegmentedButton<CalendarViewMode>(
-          segments: const [
-            ButtonSegment(value: CalendarViewMode.month, label: Text('Monat')),
-            ButtonSegment(value: CalendarViewMode.week, label: Text('Woche')),
-            ButtonSegment(value: CalendarViewMode.day, label: Text('Tag')),
-          ],
-          selected: {_mode},
-          onSelectionChanged: (value) {
-            setState(() => _mode = value.first);
+    final mode = ref.watch(calendarViewModeProvider);
+
+    return switch (mode) {
+      CalendarViewMode.month => _MonthView(
+          focusedDay: _focusedDay,
+          selectedDay: _selectedDay,
+          markers: _markers,
+          monthHours: _monthHours,
+          monthEarned: _monthEarned,
+          onDaySelected: (day) {
+            setState(() {
+              _selectedDay = day;
+              _focusedDay = day;
+            });
+            _showDaySheet(context, workplace, day);
+          },
+          onPageChanged: (day) {
+            setState(() => _focusedDay = day);
+            _loadMarkers();
           },
         ),
-        Expanded(
-          child: switch (_mode) {
-            CalendarViewMode.month => _MonthView(
-                focusedDay: _focusedDay,
-                selectedDay: _selectedDay,
-                markers: _markers,
-                monthHours: _monthHours,
-                monthEarned: _monthEarned,
-                onDaySelected: (day) {
-                  setState(() {
-                    _selectedDay = day;
-                    _focusedDay = day;
-                  });
-                  _showDaySheet(context, workplace, day);
-                },
-                onPageChanged: (day) {
-                  setState(() => _focusedDay = day);
-                  _loadMarkers();
-                },
-              ),
-            CalendarViewMode.week => _WeekView(
-                workplace: workplace,
-                focusedDay: _focusedDay,
-                onDaySelected: (day) {
-                  setState(() {
-                    _selectedDay = day;
-                    _focusedDay = day;
-                  });
-                  _showDaySheet(context, workplace, day);
-                },
-              ),
-            CalendarViewMode.day => _DayView(
-                workplace: workplace,
-                day: _selectedDay ?? DateTime.now(),
-                onPreviousDay: () {
-                  final d = _selectedDay ?? DateTime.now();
-                  setState(() => _selectedDay = d.subtract(const Duration(days: 1)));
-                },
-                onNextDay: () {
-                  final d = _selectedDay ?? DateTime.now();
-                  setState(() => _selectedDay = d.add(const Duration(days: 1)));
-                },
-              ),
+      CalendarViewMode.week => _WeekView(
+          workplace: workplace,
+          focusedDay: _focusedDay,
+          onDaySelected: (day) {
+            setState(() {
+              _selectedDay = day;
+              _focusedDay = day;
+            });
+            _showDaySheet(context, workplace, day);
           },
         ),
-      ],
-    );
+      CalendarViewMode.day => _DayView(
+          workplace: workplace,
+          day: _selectedDay ?? DateTime.now(),
+          onPreviousDay: () {
+            final d = _selectedDay ?? DateTime.now();
+            setState(() => _selectedDay = d.subtract(const Duration(days: 1)));
+          },
+          onNextDay: () {
+            final d = _selectedDay ?? DateTime.now();
+            setState(() => _selectedDay = d.add(const Duration(days: 1)));
+          },
+        ),
+      CalendarViewMode.weekList => WeekListView(workplace: workplace),
+    };
   }
 
   Future<void> _showDaySheet(
@@ -650,11 +635,24 @@ class _WeekViewState extends ConsumerState<_WeekView> {
       final info = data.putIfAbsent(day, () => _DayMarkerInfo());
       info.earned += entry.earned;
       info.hasEntries = true;
+      final color = entry.projectId != null
+          ? (projectColors[entry.projectId] ?? projectColorPalette.first)
+          : projectColorPalette.first;
       if (entry.projectId != null) {
-        info.colors.add(
-          projectColors[entry.projectId] ?? projectColorPalette.first,
-        );
+        info.colors.add(color);
       }
+      info.entryPreviews.add(
+        _DayEntryPreview(
+          startTime: entry.startTime,
+          endTime: entry.endTime,
+          color: color,
+        ),
+      );
+    }
+    for (final info in data.values) {
+      info.entryPreviews.sort(
+        (a, b) => a.startTime.compareTo(b.startTime),
+      );
     }
 
     if (mounted) {
@@ -684,6 +682,7 @@ class _WeekViewState extends ConsumerState<_WeekView> {
         final day = days[index];
         final info = _weekData[_dateOnly(day)];
         final hasEntries = info?.hasEntries ?? false;
+        final previews = info?.entryPreviews ?? const <_DayEntryPreview>[];
 
         return Card(
           child: ListTile(
@@ -710,8 +709,22 @@ class _WeekViewState extends ConsumerState<_WeekView> {
                     ],
                   )
                 : const SizedBox(width: 24),
+            isThreeLine: previews.length > 1,
             title: Text(AppFormatters.date(day)),
-            subtitle: hasEntries ? null : const Text('Keine Einträge'),
+            subtitle: hasEntries
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final preview in previews)
+                        Text(
+                          AppFormatters.weekViewEntryLine(
+                            preview.startTime,
+                            preview.endTime,
+                          ),
+                        ),
+                    ],
+                  )
+                : const Text('Keine Einträge'),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [

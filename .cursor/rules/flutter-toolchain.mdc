@@ -1,0 +1,33 @@
+---
+description: How to run Flutter/Dart in this repo on Jim's machine (SDK not on global PATH)
+alwaysApply: true
+---
+
+# Flutter toolchain
+
+Flutter is installed and works in this project. It is **not** on the agent shell's global `PATH` — do not assume `flutter` or `dart` work bare.
+
+## Commands
+
+From the repo root, always use the wrapper:
+
+```powershell
+cd c:\Users\Zeus\Projects\TimeSheet
+.\scripts\flutter.bat pub get
+.\scripts\flutter.bat analyze
+.\scripts\flutter.bat test
+.\scripts\flutter.bat run
+```
+
+On Git Bash / MSYS, use `scripts/resolve_flutter.sh` the same way other scripts do.
+
+## SDK location
+
+`scripts/flutter.bat` resolves in order:
+
+1. `TimeSheet/.tools/flutter/bin/flutter.bat` (local vendored SDK)
+2. `../Cashy/.tools/flutter/bin/flutter.bat` (shared sibling repo — **currently used**)
+
+JDK for Android builds: `../Cashy/.tools/jdk-21` when present (wrapper sets `JAVA_HOME`).
+
+If a command fails with "Flutter SDK not found", check those paths before telling the user Flutter is missing.
