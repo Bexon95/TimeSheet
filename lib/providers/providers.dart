@@ -295,6 +295,18 @@ final projectsProvider =
   return ref.watch(databaseProvider).getProjectsForWorkplace(workplaceId);
 });
 
+/// All workplace projects (for statistics chart colors).
+final chartProjectsProvider = FutureProvider<List<Project>>((ref) async {
+  ref.watch(refreshTriggerProvider);
+  final db = ref.watch(databaseProvider);
+  final workplaces = await db.getWorkplaces();
+  final projects = <Project>[];
+  for (final workplace in workplaces) {
+    projects.addAll(await db.getProjectsForWorkplace(workplace.id));
+  }
+  return projects;
+});
+
 final workplaceSummariesProvider =
     FutureProvider.family<List<WorkplaceSummary>, DateRange>((ref, range) async {
   ref.watch(refreshTriggerProvider);

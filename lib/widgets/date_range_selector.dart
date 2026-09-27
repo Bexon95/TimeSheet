@@ -11,9 +11,11 @@ class DateRangeSelector extends ConsumerWidget {
     this.showWorkplaceFilter = false,
     this.filterWorkplaceId,
     this.onFilterWorkplaceChanged,
+    this.prominentRangeLabel = false,
   });
 
   final bool showWorkplaceFilter;
+  final bool prominentRangeLabel;
   final int? filterWorkplaceId;
   final ValueChanged<int?>? onFilterWorkplaceChanged;
 
@@ -31,7 +33,11 @@ class DateRangeSelector extends ConsumerWidget {
           children: [
             Text(
               AppFormatters.dateRange(range.start, range.end),
-              style: Theme.of(context).textTheme.titleMedium,
+              style: prominentRangeLabel
+                  ? Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      )
+                  : Theme.of(context).textTheme.titleMedium,
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),

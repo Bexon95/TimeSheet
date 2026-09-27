@@ -1,22 +1,72 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timesheet/database/models.dart';
 import 'package:timesheet/services/chart_timeline.dart';
 
 void main() {
-  test('bottomLabelIndices includes start and end', () {
-    final indices = ChartTimeline.bottomLabelIndices(
-      dayCount: 90,
-      chartWidth: 400,
-    );
-    expect(indices.first, 0);
-    expect(indices.last, 89);
-    expect(indices.length, greaterThan(2));
+  test('cumulativeEarned sums day by day', () {
+    final start = DateTime(2026, 9, 1);
+    final end = DateTime(2026, 9, 3);
+    final entries = [
+      TimeEntry(
+        id: 1,
+        workplaceId: 1,
+        date: DateTime(2026, 9, 1),
+        startTime: DateTime(2026, 9, 1, 9),
+        endTime: DateTime(2026, 9, 1, 10),
+        hourlyRate: 100,
+      ),
+      TimeEntry(
+        id: 2,
+        workplaceId: 1,
+        date: DateTime(2026, 9, 3),
+        startTime: DateTime(2026, 9, 3, 9),
+        endTime: DateTime(2026, 9, 3, 11),
+        hourlyRate: 100,
+      ),
+    ];
+    final slots = ChartTimeline.build(entries, start, end);
+    expect(ChartTimeline.cumulativeEarned(slots), [100, 100, 300]);
   });
 
-  test('bottomLabelIndices shows every day for a week', () {
-    final indices = ChartTimeline.bottomLabelIndices(
-      dayCount: 7,
-      chartWidth: 400,
+  test('build fills every day in range', () {
+    final start = DateTime(2026, 9, 1);
+    final end = DateTime(2026, 9, 30);
+    final slots = ChartTimeline.build([], start, end);
+    expect(slots.length, 30);
+    expect(slots.first.day, start);
+    expect(slots.last.day, end);
+  });
+
+  test('build stacks amounts per project per day', () {
+    final start = DateTime(2026, 9, 25);
+    final end = DateTime(2026, 9, 25);
+    final entries = [
+      TimeEntry(
+        id: 1,
+        workplaceId: 1,
+        projectId: 10,
+        date: DateTime(2026, 9, 25),
+        startTime: DateTime(2026, 9, 25, 9),
+        endTime: DateTime(2026, 9, 25, 12),
+        hourlyRate: 100,
+      ),
+      TimeEntry(
+        id: 2,
+        workplaceId: 1,
+        projectId: 20,
+        date: DateTime(2026, 9, 25),
+        startTime: DateTime(2026, 9, 25, 13),
+        endTime: DateTime(2026, 9, 25, 15),
+        hourlyRate: 100,
+      ),
+    ];
+
+    final slots = ChartTimeline.build(entries, start, end);
+    expect(slots.single.earnedByProject['p_10'], 300);
+    expect(slots.single.earnedByProject['p_20'], 200);
+    expect(
+      ChartProjectSegments.keysForSlots(slots, useMoney: true),
+      ['p_10', 'p_20'],
     );
-    expect(indices, [0, 1, 2, 3, 4, 5, 6]);
   });
 }

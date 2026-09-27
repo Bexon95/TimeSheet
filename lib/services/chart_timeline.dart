@@ -1,28 +1,71 @@
-import 'dart:math' as math;
-
 import '../database/models.dart';
 import 'formatters.dart';
+
+/// Segment key for entries without a project.
+const chartNoProjectSegmentKey = '__none__';
+
+class ChartProjectSegments {
+  static String keyFor(int? projectId) =>
+      projectId == null ? chartNoProjectSegmentKey : 'p_$projectId';
+
+  static int? projectIdFromKey(String key) {
+    if (key == chartNoProjectSegmentKey) return null;
+    if (!key.startsWith('p_')) return null;
+    return int.tryParse(key.substring(2));
+  }
+
+  /// Project segment keys sorted by total amount (descending).
+  static List<String> keysForSlots(
+    List<ChartDaySlot> slots, {
+    required bool useMoney,
+  }) {
+    final totals = <String, double>{};
+    for (final slot in slots) {
+      final byProject = useMoney ? slot.earnedByProject : slot.hoursByProject;
+      for (final entry in byProject.entries) {
+        totals[entry.key] = (totals[entry.key] ?? 0) + entry.value;
+      }
+    }
+    final entries = totals.entries.where((e) => e.value > 0).toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return entries.map((e) => e.key).toList();
+  }
+}
 
 class ChartDaySlot {
   ChartDaySlot({
     required this.day,
     required this.index,
-    required this.hours,
-    required this.earned,
+    required this.hoursByProject,
+    required this.earnedByProject,
   });
 
   final DateTime day;
   final int index;
-  final double hours;
-  final double earned;
+  final Map<String, double> hoursByProject;
+  final Map<String, double> earnedByProject;
 
   String get label => AppFormatters.shortDate(day);
 
+  double get hours =>
+      hoursByProject.values.fold<double>(0, (sum, value) => sum + value);
+
+  double get earned =>
+      earnedByProject.values.fold<double>(0, (sum, value) => sum + value);
+
   bool get hasData => hours > 0 || earned > 0;
+
+  double amountForProject(String segmentKey, {required bool useMoney}) {
+    if (useMoney) return earnedByProject[segmentKey] ?? 0;
+    return hoursByProject[segmentKey] ?? 0;
+  }
 }
 
 class ChartTimeline {
-  static const minDateLabelWidth = 46.0;
+  static List<double> cumulativeEarned(List<ChartDaySlot> slots) {
+    var sum = 0.0;
+    return [for (final slot in slots) sum += slot.earned];
+  }
 
   static DateTime dayOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
@@ -36,15 +79,17 @@ class ChartTimeline {
     final end = dayOnly(rangeEnd);
     final dayCount = end.difference(start).inDays + 1;
 
-    final totals = <DateTime, ({double hours, double earned})>{};
+    final totals = <DateTime, Map<String, ({double hours, double earned})>>{};
     for (final entry in entries) {
       final key = dayOnly(entry.date);
       if (key.isBefore(start) || key.isAfter(end)) continue;
-      final existing = totals[key];
+      final segmentKey = ChartProjectSegments.keyFor(entry.projectId);
+      final dayTotals = totals.putIfAbsent(key, () => {});
+      final existing = dayTotals[segmentKey];
       if (existing == null) {
-        totals[key] = (hours: entry.hours, earned: entry.earned);
+        dayTotals[segmentKey] = (hours: entry.hours, earned: entry.earned);
       } else {
-        totals[key] = (
+        dayTotals[segmentKey] = (
           hours: existing.hours + entry.hours,
           earned: existing.earned + entry.earned,
         );
@@ -53,52 +98,21 @@ class ChartTimeline {
 
     return List.generate(dayCount, (index) {
       final day = start.add(Duration(days: index));
-      final data = totals[day];
+      final dayTotals = totals[day];
+      final hoursByProject = <String, double>{};
+      final earnedByProject = <String, double>{};
+      if (dayTotals != null) {
+        for (final entry in dayTotals.entries) {
+          hoursByProject[entry.key] = entry.value.hours;
+          earnedByProject[entry.key] = entry.value.earned;
+        }
+      }
       return ChartDaySlot(
         day: day,
         index: index,
-        hours: data?.hours ?? 0,
-        earned: data?.earned ?? 0,
+        hoursByProject: hoursByProject,
+        earnedByProject: earnedByProject,
       );
     });
-  }
-
-  static int maxBottomLabels(int rangeDayCount, double chartWidth) {
-    var maxLabels = (chartWidth / minDateLabelWidth).floor();
-    if (rangeDayCount > 14) {
-      maxLabels = math.min(maxLabels, 10);
-    }
-    if (rangeDayCount > 31) {
-      maxLabels = math.min(maxLabels, 8);
-    }
-    if (rangeDayCount > 90) {
-      maxLabels = math.min(maxLabels, 6);
-    }
-    if (rangeDayCount > 180) {
-      maxLabels = math.min(maxLabels, 5);
-    }
-    return maxLabels.clamp(2, 14);
-  }
-
-  /// Day indices (0-based) that should show a date label on the chart X-axis.
-  static List<int> bottomLabelIndices({
-    required int dayCount,
-    required double chartWidth,
-  }) {
-    if (dayCount <= 0) return const [];
-    if (dayCount == 1) return const [0];
-
-    final maxLabels = maxBottomLabels(dayCount, chartWidth);
-    if (dayCount <= maxLabels) {
-      return List.generate(dayCount, (i) => i);
-    }
-
-    final indices = <int>{0, dayCount - 1};
-    final step = (dayCount - 1) / (maxLabels - 1);
-    for (var i = 1; i < maxLabels - 1; i++) {
-      indices.add((step * i).round().clamp(0, dayCount - 1));
-    }
-    final sorted = indices.toList()..sort();
-    return sorted;
   }
 }
