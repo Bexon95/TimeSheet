@@ -5,6 +5,7 @@ import '../database/models.dart';
 import '../providers/providers.dart';
 import '../services/formatters.dart';
 import '../utils/project_colors.dart';
+import 'project_color_picker.dart';
 
 class TimeEntryFormSheet extends ConsumerStatefulWidget {
   const TimeEntryFormSheet({
@@ -80,12 +81,13 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
     } else {
       _startDate = widget.initialDate ?? today;
       _endDate = widget.initialDate ?? today;
+      final duration = ref.read(entryPreferencesProvider).defaultDurationMinutes;
       if (widget.defaultNoon) {
         _start = const TimeOfDay(hour: 12, minute: 0);
-        _end = const TimeOfDay(hour: 12, minute: 30);
+        _end = _addMinutes(_start, duration);
       } else {
         _start = TimeOfDay(hour: now.hour, minute: now.minute);
-        _end = _addMinutes(_start, 30);
+        _end = _addMinutes(_start, duration);
       }
     }
 
@@ -143,18 +145,26 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
       initialTime: isStart ? _start : _end,
     );
     if (picked == null) return;
+    final prefs = ref.read(entryPreferencesProvider);
+    var openEndNext = false;
     setState(() {
       if (isStart) {
         _start = picked;
         if (!_endManuallyEdited) {
-          _end = _addMinutes(_start, 30);
+          _end = _addMinutes(_start, prefs.defaultDurationMinutes);
           _endDate = _startDate;
+          openEndNext = prefs.autoOpenEndTime;
         }
       } else {
         _end = picked;
         _endManuallyEdited = true;
       }
     });
+    if (isStart && openEndNext && mounted) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _pickTime(false);
+      });
+    }
   }
 
   Future<void> _save() async {
@@ -188,43 +198,23 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
   }
 
   Future<void> _addProject() async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Projekt hinzufügen'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Projektname'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Hinzufügen'),
-          ),
-        ],
-      ),
+    final existing = await ref
+        .read(databaseProvider)
+        .getProjectsForWorkplace(widget.workplace.id);
+    final defaultColor =
+        projectColorPalette[existing.length % projectColorPalette.length];
+    final input = await showAddProjectDialog(
+      context,
+      initialColor: defaultColor,
     );
-    if (name == null || name.isEmpty) return;
+    if (input == null) return;
 
-    final colorIndex =
-        (await ref.read(databaseProvider).getProjectsForWorkplace(
-              widget.workplace.id,
-            ))
-            .length;
-    final color = projectColorPalette[
-        colorIndex % projectColorPalette.length];
     final id = await ref.read(databaseProvider).insertProject(
           Project(
             id: 0,
             workplaceId: widget.workplace.id,
-            name: name,
-            colorValue: colorToValue(color),
+            name: input.name,
+            colorValue: colorToValue(input.color),
           ),
         );
     bumpRefresh(ref);

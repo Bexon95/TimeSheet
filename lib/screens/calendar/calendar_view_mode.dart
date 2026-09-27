@@ -15,6 +15,17 @@ extension CalendarViewModeLabel on CalendarViewMode {
 final calendarViewModeProvider =
     StateProvider<CalendarViewMode>((ref) => CalendarViewMode.month);
 
+DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+/// Last day selected or viewed in the calendar tab (for manual entry prefills).
+final calendarSelectedDayProvider = StateProvider<DateTime>(
+  (ref) => _dateOnly(DateTime.now()),
+);
+
+void setCalendarSelectedDay(WidgetRef ref, DateTime day) {
+  ref.read(calendarSelectedDayProvider.notifier).state = _dateOnly(day);
+}
+
 class CalendarViewModeMenu extends ConsumerWidget {
   const CalendarViewModeMenu({super.key});
 

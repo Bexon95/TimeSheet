@@ -9,6 +9,7 @@ import '../../services/formatters.dart';
 import '../../utils/iso_week.dart';
 import '../../utils/project_colors.dart';
 import '../../widgets/time_entry_form.dart';
+import 'calendar_view_mode.dart';
 import 'week_detail_sheet.dart';
 
 sealed class _WeekListRow {}
@@ -193,12 +194,15 @@ class _WeekListViewState extends ConsumerState<WeekListView> {
               weekMonday: weekMonday,
               entries: entries,
               projects: _projects,
-              onWeekTap: () => showWeekDetailSheet(
-                context,
-                workplace: widget.workplace,
-                weekMonday: weekMonday,
-                onChanged: _load,
-              ),
+              onWeekTap: () {
+                setCalendarSelectedDay(ref, weekMonday);
+                showWeekDetailSheet(
+                  context,
+                  workplace: widget.workplace,
+                  weekMonday: weekMonday,
+                  onChanged: _load,
+                );
+              },
               onEntryChanged: () {
                 bumpRefresh(ref);
                 _load();

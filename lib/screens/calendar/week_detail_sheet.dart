@@ -5,6 +5,7 @@ import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
 import '../../utils/iso_week.dart';
+import 'calendar_view_mode.dart';
 import '../../widgets/time_entry_form.dart';
 
 Future<void> showWeekDetailSheet(
@@ -74,6 +75,7 @@ class _WeekDetailSheetState extends ConsumerState<WeekDetailSheet> {
   }
 
   Future<void> _addEntry(DateTime day) async {
+    setCalendarSelectedDay(ref, day);
     Navigator.pop(context);
     await showTimeEntryForm(
       context,

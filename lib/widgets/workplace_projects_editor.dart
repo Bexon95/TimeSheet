@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../database/models.dart';
 import '../providers/providers.dart';
 import '../utils/project_colors.dart';
+import 'project_color_picker.dart';
 
 class WorkplaceProjectsEditor extends ConsumerStatefulWidget {
   const WorkplaceProjectsEditor({super.key, required this.workplaceId});
@@ -18,40 +19,23 @@ class WorkplaceProjectsEditor extends ConsumerStatefulWidget {
 class _WorkplaceProjectsEditorState
     extends ConsumerState<WorkplaceProjectsEditor> {
   Future<void> _addProject() async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Projekt hinzufügen'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(labelText: 'Projektname'),
-          autofocus: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Abbrechen'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, controller.text.trim()),
-            child: const Text('Hinzufügen'),
-          ),
-        ],
-      ),
-    );
-    if (name == null || name.isEmpty) return;
-
     final existing = await ref
         .read(databaseProvider)
         .getProjectsForWorkplace(widget.workplaceId);
-    final color = projectColorPalette[existing.length % projectColorPalette.length];
+    final defaultColor =
+        projectColorPalette[existing.length % projectColorPalette.length];
+    final input = await showAddProjectDialog(
+      context,
+      initialColor: defaultColor,
+    );
+    if (input == null) return;
+
     await ref.read(databaseProvider).insertProject(
           Project(
             id: 0,
             workplaceId: widget.workplaceId,
-            name: name,
-            colorValue: colorToValue(color),
+            name: input.name,
+            colorValue: colorToValue(input.color),
           ),
         );
     bumpRefresh(ref);

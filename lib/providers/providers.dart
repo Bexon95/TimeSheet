@@ -79,6 +79,60 @@ Future<void> saveLastProjectId(int workplaceId, int? projectId) async {
   }
 }
 
+class EntryPreferences {
+  const EntryPreferences({
+    required this.autoOpenEndTime,
+    required this.defaultDurationMinutes,
+  });
+
+  final bool autoOpenEndTime;
+  final int defaultDurationMinutes;
+
+  static const defaults = EntryPreferences(
+    autoOpenEndTime: true,
+    defaultDurationMinutes: 30,
+  );
+}
+
+final entryPreferencesProvider =
+    StateNotifierProvider<EntryPreferencesNotifier, EntryPreferences>((ref) {
+  return EntryPreferencesNotifier();
+});
+
+class EntryPreferencesNotifier extends StateNotifier<EntryPreferences> {
+  EntryPreferencesNotifier() : super(EntryPreferences.defaults) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    state = EntryPreferences(
+      autoOpenEndTime: prefs.getBool('entry_auto_open_end') ?? true,
+      defaultDurationMinutes:
+          prefs.getInt('entry_default_duration_minutes') ?? 30,
+    );
+  }
+
+  Future<void> setAutoOpenEndTime(bool value) async {
+    state = EntryPreferences(
+      autoOpenEndTime: value,
+      defaultDurationMinutes: state.defaultDurationMinutes,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('entry_auto_open_end', value);
+  }
+
+  Future<void> setDefaultDurationMinutes(int minutes) async {
+    final clamped = minutes < 1 ? 1 : minutes;
+    state = EntryPreferences(
+      autoOpenEndTime: state.autoOpenEndTime,
+      defaultDurationMinutes: clamped,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('entry_default_duration_minutes', clamped);
+  }
+}
+
 class DayQuery {
   DayQuery({required this.workplaceId, required this.day});
 

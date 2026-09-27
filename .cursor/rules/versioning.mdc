@@ -7,19 +7,35 @@ alwaysApply: true
 
 App version lives in `pubspec.yaml` as `MAJOR.MINOR.PATCH+BUILD`.
 
-Bump rules:
-- **New feature** → `dart run scripts/bump_version.dart minor` (e.g. 1.0.0 → 1.1.0)
-- **Bug fix** → `dart run scripts/bump_version.dart patch` (e.g. 1.1.0 → 1.1.1)
-- **Typos, chores, small tweaks** → `dart run scripts/bump_version.dart build` (build number only)
+The `+BUILD` number is the Android `versionCode` when `force-version-code-ignoring-abi` is enabled (arm64 sideload builds).
 
-For Cursor agent sessions, write the bump type before finishing:
-- `echo minor > .cursor/.bump-type` for features
-- `echo patch > .cursor/.bump-type` for fixes
-- omit the file (or `echo build > .cursor/.bump-type`) for minor edits
+## When to bump what
 
-The `stop` hook auto-bumps when `lib/` files were edited. Git commits also bump via `.githooks/commit-msg` when hooks are installed (`scripts/install_git_hooks.sh`).
+| Change | Bump | Example |
+|--------|------|---------|
+| **New feature** (including small ones) | **minor** — reset patch to 0 | 1.2.0 → **1.3.0** |
+| **Bug fix** | **patch** | 1.3.0 → **1.3.1** |
+| Typos, chores, copy tweaks, refactors with no behavior change | **build** only | 1.3.1+10 → 1.3.1+**11** |
+| Breaking / major rewrite | **major** | 1.3.1 → **2.0.0** |
 
-Commit message prefixes:
-- `feat:` → minor bump
-- `fix:` → patch bump
-- anything else with code changes → build bump only
+Command: `dart run scripts/bump_version.dart [major|minor|patch|build]` (use `scripts/flutter.bat` on Windows).
+
+## Cursor agent sessions
+
+Before finishing, write the bump type so the **stop** hook can apply it when `lib/` was edited:
+
+- `echo minor > .cursor/.bump-type` — features
+- `echo patch > .cursor/.bump-type` — fixes
+- `echo build > .cursor/.bump-type` — chores (default if omitted)
+
+The stop hook runs `scripts/hooks/bump_on_stop.dart` only when `.cursor/.bump-pending` exists (set by the afterFileEdit hook on `lib/**/*.dart` edits).
+
+## Git commits
+
+With hooks installed (`scripts/install_git_hooks.sh`), `.githooks/commit-msg` bumps from the message prefix when `lib/` or `test/` changed:
+
+- `feat:` → minor
+- `fix:` → patch
+- anything else → build only
+
+Skips bump if `pubspec.yaml` is already staged.

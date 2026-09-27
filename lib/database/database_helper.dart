@@ -147,6 +147,18 @@ class DatabaseHelper {
     await batch.commit(noResult: true);
   }
 
+  Future<List<Project>> getAllProjects() async {
+    final db = await database;
+    final rows = await db.query('projects', orderBy: 'workplace_id ASC, name ASC');
+    return rows.map(Project.fromMap).toList();
+  }
+
+  Future<List<SavedInvoice>> getAllSavedInvoices() async {
+    final db = await database;
+    final rows = await db.query('saved_invoices', orderBy: 'created_at DESC');
+    return rows.map(SavedInvoice.fromMap).toList();
+  }
+
   Future<List<Project>> getProjectsForWorkplace(int workplaceId) async {
     final db = await database;
     final rows = await db.query(

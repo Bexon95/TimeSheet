@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/models.dart';
 import '../providers/providers.dart';
-import '../screens/invoice/invoice_settings_screen.dart';
+import '../screens/settings/settings_screen.dart';
 import 'workplace_projects_editor.dart';
 
 class WorkplaceDrawer extends ConsumerStatefulWidget {
@@ -99,21 +99,19 @@ class _WorkplaceDrawerState extends ConsumerState<WorkplaceDrawer> {
               ),
             ),
             ListTile(
-              leading: const Icon(Icons.receipt_long_outlined),
-              title: const Text('Meine Rechnungsdaten'),
-              subtitle: const Text('Name, Adresse, IBAN, BIC'),
+              leading: const Icon(Icons.settings_outlined),
+              title: const Text('Einstellungen'),
+              subtitle: const Text('Daten, Erscheinungsbild, Zeiteinträge'),
               onTap: () {
                 Navigator.pop(context);
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => const InvoiceSettingsScreen(),
+                    builder: (_) => const SettingsScreen(),
                   ),
                 );
               },
             ),
-            const _ThemeModeTile(),
-            const _AppVersionFooter(),
           ],
         ),
       ),
@@ -258,61 +256,3 @@ class _WorkplaceDrawerState extends ConsumerState<WorkplaceDrawer> {
   }
 }
 
-class _ThemeModeTile extends ConsumerWidget {
-  const _ThemeModeTile();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final mode = ref.watch(themeModeProvider);
-
-    return ListTile(
-      leading: Icon(
-        switch (mode) {
-          ThemeMode.dark => Icons.dark_mode,
-          ThemeMode.light => Icons.light_mode,
-          ThemeMode.system => Icons.brightness_auto,
-        },
-      ),
-      title: const Text('Erscheinungsbild'),
-      subtitle: Text(
-        switch (mode) {
-          ThemeMode.dark => 'Dunkel',
-          ThemeMode.light => 'Hell',
-          ThemeMode.system => 'System',
-        },
-      ),
-      onTap: () async {
-        final next = switch (mode) {
-          ThemeMode.system => AppThemeMode.light,
-          ThemeMode.light => AppThemeMode.dark,
-          ThemeMode.dark => AppThemeMode.system,
-        };
-        await ref.read(themeModeProvider.notifier).setMode(next);
-      },
-    );
-  }
-}
-
-class _AppVersionFooter extends ConsumerWidget {
-  const _AppVersionFooter();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final packageInfo = ref.watch(packageInfoProvider);
-
-    return packageInfo.when(
-      data: (info) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        child: Text(
-          'Version ${info.version} (${info.buildNumber})',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-      loading: () => const SizedBox.shrink(),
-      error: (_, _) => const SizedBox.shrink(),
-    );
-  }
-}

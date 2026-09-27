@@ -9,7 +9,7 @@ import '../widgets/time_entry_form.dart';
 import '../widgets/timer_banner.dart';
 import '../widgets/workplace_app_bar.dart';
 import '../widgets/workplace_drawer.dart';
-import 'calendar/calendar_view_mode.dart';
+import 'calendar/calendar_view_mode.dart' show CalendarViewModeMenu, calendarSelectedDayProvider;
 import 'calendar/calendar_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'invoice/invoice_screen.dart';
@@ -197,9 +197,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
     );
 
     if (action == 'manual') {
+      final initialDate = ref.read(calendarSelectedDayProvider);
       await showTimeEntryForm(
         context,
         workplace: workplace,
+        initialDate: initialDate,
         defaultNoon: true,
       );
       bumpRefresh(ref);

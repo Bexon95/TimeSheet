@@ -124,6 +124,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           monthHours: _monthHours,
           monthEarned: _monthEarned,
           onDaySelected: (day) {
+            setCalendarSelectedDay(ref, day);
             setState(() {
               _selectedDay = day;
               _focusedDay = day;
@@ -139,6 +140,7 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           workplace: workplace,
           focusedDay: _focusedDay,
           onDaySelected: (day) {
+            setCalendarSelectedDay(ref, day);
             setState(() {
               _selectedDay = day;
               _focusedDay = day;
@@ -151,11 +153,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           day: _selectedDay ?? DateTime.now(),
           onPreviousDay: () {
             final d = _selectedDay ?? DateTime.now();
-            setState(() => _selectedDay = d.subtract(const Duration(days: 1)));
+            final next = d.subtract(const Duration(days: 1));
+            setCalendarSelectedDay(ref, next);
+            setState(() => _selectedDay = next);
           },
           onNextDay: () {
             final d = _selectedDay ?? DateTime.now();
-            setState(() => _selectedDay = d.add(const Duration(days: 1)));
+            final next = d.add(const Duration(days: 1));
+            setCalendarSelectedDay(ref, next);
+            setState(() => _selectedDay = next);
           },
         ),
       CalendarViewMode.weekList => WeekListView(workplace: workplace),

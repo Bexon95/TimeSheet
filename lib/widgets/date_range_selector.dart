@@ -60,12 +60,9 @@ class DateRangeSelector extends ConsumerWidget {
                     onTap: () => _setMonth(ref),
                   ),
                   const SizedBox(width: 8),
-                  GestureDetector(
-                    onLongPress: () => _pickCustom(context, ref),
-                    child: ActionChip(
-                      label: const Text('Benutzerdefiniert'),
-                      onPressed: () => _applyOrPickCustom(context, ref),
-                    ),
+                  ActionChip(
+                    label: const Text('Benutzerdefiniert'),
+                    onPressed: () => _pickCustom(context, ref),
                   ),
                 ],
               ),
@@ -104,15 +101,6 @@ class DateRangeSelector extends ConsumerWidget {
             end: DateTime(now.year, now.month + 1, 0),
           ),
         );
-  }
-
-  Future<void> _applyOrPickCustom(BuildContext context, WidgetRef ref) async {
-    final saved = ref.read(appStateProvider).savedCustomDateRange;
-    if (saved != null) {
-      await ref.read(appStateProvider.notifier).setDateRange(saved);
-      return;
-    }
-    await _pickCustom(context, ref);
   }
 
   Future<void> _pickCustom(BuildContext context, WidgetRef ref) async {

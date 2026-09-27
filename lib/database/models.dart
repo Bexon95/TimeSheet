@@ -288,6 +288,42 @@ class SavedInvoice {
   final String footerSnapshot;
   final String teilbetragLabel;
 
+  SavedInvoice copyWith({
+    int? id,
+    int? workplaceId,
+    DateTime? createdAt,
+    String? invoiceNumber,
+    String? title,
+    double? amount,
+    String? recipientName,
+    String? recipientAddress,
+    DateTime? dateRangeStart,
+    DateTime? dateRangeEnd,
+    List<String>? bulletLines,
+    String? pdfFilePath,
+    String? senderSnapshot,
+    String? footerSnapshot,
+    String? teilbetragLabel,
+  }) {
+    return SavedInvoice(
+      id: id ?? this.id,
+      workplaceId: workplaceId ?? this.workplaceId,
+      createdAt: createdAt ?? this.createdAt,
+      invoiceNumber: invoiceNumber ?? this.invoiceNumber,
+      title: title ?? this.title,
+      amount: amount ?? this.amount,
+      recipientName: recipientName ?? this.recipientName,
+      recipientAddress: recipientAddress ?? this.recipientAddress,
+      dateRangeStart: dateRangeStart ?? this.dateRangeStart,
+      dateRangeEnd: dateRangeEnd ?? this.dateRangeEnd,
+      bulletLines: bulletLines ?? this.bulletLines,
+      pdfFilePath: pdfFilePath ?? this.pdfFilePath,
+      senderSnapshot: senderSnapshot ?? this.senderSnapshot,
+      footerSnapshot: footerSnapshot ?? this.footerSnapshot,
+      teilbetragLabel: teilbetragLabel ?? this.teilbetragLabel,
+    );
+  }
+
   Map<String, Object?> toMap() => {
         'id': id,
         'workplace_id': workplaceId,

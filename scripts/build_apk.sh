@@ -32,6 +32,7 @@ VERSION_NAME="${VERSION_LINE%%+*}"
 cd "$ROOT"
 # One arm64 split only for a smaller sideloadable APK.
 "$FLUTTER" build apk --release --split-per-abi --target-platform android-arm64 \
+  -Pforce-version-code-ignoring-abi=true \
   "${FLUTTER_ARGS[@]}"
 
 OUTPUT_DIR="$ROOT/build/app/outputs/flutter-apk"
