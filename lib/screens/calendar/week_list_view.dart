@@ -55,7 +55,7 @@ class _WeekListViewState extends ConsumerState<WeekListView> {
 
   List<_WeekListRow> _rows = [];
   bool _loading = true;
-  bool _didInitialScroll = false;
+  int _initialScrollIndex = 0;
   Map<int, Project> _projects = {};
 
   static final _rangeStart = DateTime(2020, 1, 1);
@@ -71,7 +71,6 @@ class _WeekListViewState extends ConsumerState<WeekListView> {
   void didUpdateWidget(covariant WeekListView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.workplace.id != widget.workplace.id) {
-      _didInitialScroll = false;
       _load();
     }
   }
@@ -136,35 +135,24 @@ class _WeekListViewState extends ConsumerState<WeekListView> {
       );
     }
 
+    final currentMonday = IsoWeek.dateOnly(IsoWeek.mondayOf(DateTime.now()));
+    var scrollIndex = 0;
+    for (var i = 0; i < rows.length; i++) {
+      final row = rows[i];
+      if (row is _CalendarWeekRow && row.weekMonday == currentMonday) {
+        scrollIndex = i;
+        break;
+      }
+    }
+
     if (mounted) {
       setState(() {
         _rows = rows;
         _projects = projectMap;
+        _initialScrollIndex = scrollIndex;
         _loading = false;
       });
-      _scrollToCurrentWeek();
     }
-  }
-
-  void _scrollToCurrentWeek() {
-    if (_didInitialScroll) return;
-    final currentMonday = IsoWeek.mondayOf(DateTime.now());
-    var index = -1;
-    for (var i = 0; i < _rows.length; i++) {
-      final row = _rows[i];
-      if (row is _CalendarWeekRow &&
-          row.weekMonday == IsoWeek.dateOnly(currentMonday)) {
-        index = i;
-        break;
-      }
-    }
-    if (index < 0) return;
-    _didInitialScroll = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.isAttached) {
-        _scrollController.jumpTo(index: index);
-      }
-    });
   }
 
   @override
@@ -176,8 +164,10 @@ class _WeekListViewState extends ConsumerState<WeekListView> {
     }
 
     return ScrollablePositionedList.builder(
+      key: ValueKey(widget.workplace.id),
       itemScrollController: _scrollController,
       itemPositionsListener: _positionsListener,
+      initialScrollIndex: _initialScrollIndex,
       itemCount: _rows.length,
       itemBuilder: (context, index) {
         final row = _rows[index];

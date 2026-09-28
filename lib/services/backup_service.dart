@@ -368,8 +368,18 @@ class BackupService {
     Map<int, int> projectIdMap,
   ) async {
     final prefs = await SharedPreferences.getInstance();
+    const skipKeys = {
+      'date_range_start',
+      'date_range_end',
+      'custom_date_range_start',
+      'custom_date_range_end',
+      'selected_workplace_id',
+    };
     for (final entry in preferences.entries) {
       if (entry.key == 'quick_entry_presets_export') {
+        continue;
+      }
+      if (skipKeys.contains(entry.key)) {
         continue;
       }
       if (entry.key.startsWith('last_project_')) {

@@ -26,20 +26,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   final _quickEntryService = QuickEntryService();
 
-  static const _titles = [
-    'Dashboard',
-    'Kalender',
-    'Statistik',
-    'Rechnungen',
-  ];
-
   @override
   Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
 
     if (appState.isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        body: const Center(child: CircularProgressIndicator()),
       );
     }
 
@@ -47,7 +41,6 @@ class _HomeShellState extends ConsumerState<HomeShell> {
 
     return Scaffold(
       appBar: WorkplaceAppBar(
-        title: _titles[bodyIndex],
         subtitleWidget:
             bodyIndex == 1 ? const CalendarViewModeMenu() : null,
       ),
@@ -116,15 +109,27 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   }
 
   Future<void> _createQuickEntry(Workplace workplace, QuickEntryPreset preset) async {
-    final times = QuickEntryService.computeTimes(preset);
+    final selectedDay = ref.read(calendarSelectedDayProvider);
+    final now = DateTime.now();
+    final reference = DateTime(
+      selectedDay.year,
+      selectedDay.month,
+      selectedDay.day,
+      now.hour,
+      now.minute,
+      now.second,
+    );
+    final times = QuickEntryService.computeTimes(preset, reference: reference);
+    final projectId = await loadLastProjectId(workplace.id);
     final db = ref.read(databaseProvider);
     final entry = TimeEntry(
       id: 0,
       workplaceId: workplace.id,
+      projectId: projectId,
       date: DateTime(
-        times.start.year,
-        times.start.month,
-        times.start.day,
+        selectedDay.year,
+        selectedDay.month,
+        selectedDay.day,
       ),
       startTime: times.start,
       endTime: times.end,

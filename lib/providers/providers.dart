@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../database/database_helper.dart';
 import '../database/models.dart';
 import '../services/timer_service.dart';
+import '../utils/date_only.dart';
 
 final databaseProvider = Provider<DatabaseHelper>((ref) {
   return DatabaseHelper.instance;
@@ -169,6 +170,26 @@ class DateRange {
   DateRange copyWith({DateTime? start, DateTime? end}) {
     return DateRange(start: start ?? this.start, end: end ?? this.end);
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is DateRange &&
+      other.start.year == start.year &&
+      other.start.month == start.month &&
+      other.start.day == start.day &&
+      other.end.year == end.year &&
+      other.end.month == end.month &&
+      other.end.day == end.day;
+
+  @override
+  int get hashCode => Object.hash(
+        start.year,
+        start.month,
+        start.day,
+        end.year,
+        end.month,
+        end.day,
+      );
 }
 
 class AppStateNotifier extends StateNotifier<AppState> {
@@ -181,42 +202,62 @@ class AppStateNotifier extends StateNotifier<AppState> {
 
   Future<void> _load() async {
     final prefs = await SharedPreferences.getInstance();
-    final workplaces = await _db.getWorkplaces();
-    final selectedId = prefs.getInt('selected_workplace_id');
     final rangeStart = prefs.getString('date_range_start');
     final rangeEnd = prefs.getString('date_range_end');
     final customStart = prefs.getString('custom_date_range_start');
     final customEnd = prefs.getString('custom_date_range_end');
-    final timer = await _timerService.getActiveTimer();
 
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
     final monthEnd = DateTime(now.year, now.month + 1, 0);
 
     state = state.copyWith(
-      workplaces: workplaces,
-      selectedWorkplaceId: selectedId ??
-          (workplaces.isNotEmpty ? workplaces.first.id : null),
       dateRange: DateRange(
-        start: rangeStart != null
-            ? DateTime.parse(rangeStart)
-            : monthStart,
-        end: rangeEnd != null ? DateTime.parse(rangeEnd) : monthEnd,
+        start: rangeStart != null ? parseDateOnly(rangeStart) : monthStart,
+        end: rangeEnd != null ? parseDateOnly(rangeEnd) : monthEnd,
       ),
       savedCustomDateRange: customStart != null && customEnd != null
           ? DateRange(
-              start: DateTime.parse(customStart),
-              end: DateTime.parse(customEnd),
+              start: parseDateOnly(customStart),
+              end: parseDateOnly(customEnd),
             )
           : null,
-      activeTimer: timer,
       isLoading: false,
+    );
+
+    final workplaces = await _db.getWorkplaces();
+    final selectedId = prefs.getInt('selected_workplace_id');
+    final timer = await _timerService.getActiveTimer();
+
+    state = state.copyWith(
+      workplaces: workplaces,
+      selectedWorkplaceId: selectedId ??
+          (workplaces.isNotEmpty ? workplaces.first.id : null),
+      activeTimer: timer,
     );
   }
 
   Future<void> reload() async {
     final workplaces = await _db.getWorkplaces();
     state = state.copyWith(workplaces: workplaces);
+  }
+
+  /// After a backup merge: refresh workplaces and align the dashboard date
+  /// range with imported time entries (calendar ignores this range).
+  Future<void> reloadAfterImport({bool expandDateRangeToEntries = true}) async {
+    final workplaces = await _db.getWorkplaces();
+    state = state.copyWith(workplaces: workplaces);
+
+    if (!expandDateRangeToEntries) return;
+
+    final span = await _db.getEntryDateSpan();
+    if (span == null) return;
+
+    final range = DateRange(
+      start: DateTime(span.start.year, span.start.month, span.start.day),
+      end: DateTime(span.end.year, span.end.month, span.end.day),
+    );
+    await setCustomDateRange(range);
   }
 
   Future<void> selectWorkplace(int? id) async {
@@ -352,17 +393,25 @@ final projectsProvider =
 /// All workplace projects (for statistics chart colors).
 final chartProjectsProvider = FutureProvider<List<Project>>((ref) async {
   ref.watch(refreshTriggerProvider);
-  final db = ref.watch(databaseProvider);
-  final workplaces = await db.getWorkplaces();
-  final projects = <Project>[];
-  for (final workplace in workplaces) {
-    projects.addAll(await db.getProjectsForWorkplace(workplace.id));
-  }
-  return projects;
+  return ref.watch(databaseProvider).getAllProjects();
 });
+
+class CachedWorkplaceSummaries {
+  const CachedWorkplaceSummaries({
+    required this.range,
+    required this.summaries,
+  });
+
+  final DateRange range;
+  final List<WorkplaceSummary> summaries;
+}
+
+final workplaceSummariesCacheProvider =
+    StateProvider<CachedWorkplaceSummaries?>((ref) => null);
 
 final workplaceSummariesProvider =
     FutureProvider.family<List<WorkplaceSummary>, DateRange>((ref, range) async {
+  ref.keepAlive();
   ref.watch(refreshTriggerProvider);
   return ref.watch(databaseProvider).getWorkplaceSummaries(
         start: range.start,

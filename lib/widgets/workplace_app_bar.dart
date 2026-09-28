@@ -6,12 +6,10 @@ import '../providers/providers.dart';
 class WorkplaceAppBar extends ConsumerWidget implements PreferredSizeWidget {
   const WorkplaceAppBar({
     super.key,
-    required this.title,
     this.actions,
     this.subtitleWidget,
   });
 
-  final String title;
   final List<Widget>? actions;
   final Widget? subtitleWidget;
 
@@ -25,33 +23,21 @@ class WorkplaceAppBar extends ConsumerWidget implements PreferredSizeWidget {
         .where((w) => w.id == appState.selectedWorkplaceId)
         .firstOrNull;
 
+    final employerTitle = Text(
+      selected?.name ?? 'Kein Arbeitgeber',
+      style: Theme.of(context).textTheme.titleMedium,
+      overflow: TextOverflow.ellipsis,
+    );
+
     return AppBar(
       title: subtitleWidget != null
           ? Row(
               children: [
-                Expanded(
-                  child: Text(
-                    selected?.name ?? 'Kein Arbeitgeber',
-                    style: Theme.of(context).textTheme.titleMedium,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                Expanded(child: employerTitle),
                 subtitleWidget!,
               ],
             )
-          : Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  selected?.name ?? 'Kein Arbeitgeber',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ),
+          : employerTitle,
       actions: [
         if (appState.workplaces.length > 1)
           PopupMenuButton<int>(

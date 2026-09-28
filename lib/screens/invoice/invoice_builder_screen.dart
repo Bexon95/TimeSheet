@@ -9,6 +9,7 @@ import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
 import '../../services/pdf_invoice_service.dart';
+import '../../utils/date_only.dart';
 import '../../widgets/date_range_selector.dart';
 
 class InvoiceBuilderScreen extends ConsumerStatefulWidget {
@@ -37,6 +38,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
   final _teilbetragController = TextEditingController(text: 'Betrag');
   final List<TextEditingController> _bulletControllers = [];
   bool _initialized = false;
+  DateTime _invoiceDate = dateOnly(DateTime.now());
   DateTime? _lastRangeKeyStart;
   DateTime? _lastRangeKeyEnd;
 
@@ -88,6 +90,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
     final existing = widget.existingInvoice;
 
     if (existing != null) {
+      _invoiceDate = dateOnly(existing.createdAt);
       _invoiceNumberController.text = existing.invoiceNumber;
       _recipientNameController.text = existing.recipientName;
       _recipientAddressController.text = existing.recipientAddress;
@@ -143,6 +146,19 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
     });
   }
 
+  Future<void> _pickInvoiceDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _invoiceDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+      locale: const Locale('de', 'DE'),
+    );
+    if (picked != null) {
+      setState(() => _invoiceDate = dateOnly(picked));
+    }
+  }
+
   Future<void> _preview() async {
     final settings = await ref.read(databaseProvider).getInvoiceSettings();
     final invoice = _buildDraft(settings);
@@ -169,7 +185,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       final updated = SavedInvoice(
         id: widget.existingInvoice!.id,
         workplaceId: draft.workplaceId,
-        createdAt: widget.existingInvoice!.createdAt,
+        createdAt: draft.createdAt,
         invoiceNumber: draft.invoiceNumber,
         title: draft.title,
         amount: draft.amount,
@@ -254,7 +270,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
     return SavedInvoice(
       id: existing?.id ?? 0,
       workplaceId: widget.workplace.id,
-      createdAt: existing?.createdAt ?? DateTime.now(),
+      createdAt: _invoiceDate,
       invoiceNumber: _invoiceNumberController.text.trim(),
       title: _titleController.text.trim(),
       amount: double.tryParse(_amountController.text.replaceAll(',', '.')) ?? 0,
@@ -293,12 +309,22 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
         children: [
           if (!widget.isEditing) ...[
             const DateRangeSelector(),
-            const SizedBox(height: 8),
-            Text('Zeitraum: ${AppFormatters.dateRange(range.start, range.end)}'),
+            const SizedBox(height: 12),
           ] else
             Text(
               'Zeitraum: ${AppFormatters.dateRange(widget.existingInvoice!.dateRangeStart, widget.existingInvoice!.dateRangeEnd)}',
             ),
+          InkWell(
+            onTap: _pickInvoiceDate,
+            borderRadius: BorderRadius.circular(4),
+            child: InputDecorator(
+              decoration: const InputDecoration(
+                labelText: 'Rechnungsdatum',
+                border: OutlineInputBorder(),
+              ),
+              child: Text(AppFormatters.date(_invoiceDate)),
+            ),
+          ),
           const SizedBox(height: 12),
           TextField(
             controller: _invoiceNumberController,

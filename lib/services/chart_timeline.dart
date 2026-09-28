@@ -70,6 +70,12 @@ class ChartTimeline {
   static DateTime dayOnly(DateTime date) =>
       DateTime(date.year, date.month, date.day);
 
+  /// Calendar-day addition (avoids DST issues from [Duration] on [DateTime]).
+  static DateTime addCalendarDays(DateTime date, int days) {
+    final d = dayOnly(date);
+    return DateTime(d.year, d.month, d.day + days);
+  }
+
   static List<ChartDaySlot> build(
     List<TimeEntry> entries,
     DateTime rangeStart,
@@ -97,7 +103,7 @@ class ChartTimeline {
     }
 
     return List.generate(dayCount, (index) {
-      final day = start.add(Duration(days: index));
+      final day = addCalendarDays(start, index);
       final dayTotals = totals[day];
       final hoursByProject = <String, double>{};
       final earnedByProject = <String, double>{};

@@ -91,7 +91,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     try {
       final result =
           await BackupService(ref.read(databaseProvider)).importFromUserPick();
-      await ref.read(appStateProvider.notifier).reload();
+      await ref.read(appStateProvider.notifier).reloadAfterImport();
       bumpRefresh(ref);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

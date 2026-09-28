@@ -37,6 +37,52 @@ void main() {
     expect(slots.last.day, end);
   });
 
+  test('build keeps one slot per day for long ranges', () {
+    final start = DateTime(2023, 1, 1);
+    final end = DateTime(2023, 12, 31);
+    final entries = [
+      TimeEntry(
+        id: 1,
+        workplaceId: 1,
+        date: DateTime(2023, 6, 7),
+        startTime: DateTime(2023, 6, 7, 9),
+        endTime: DateTime(2023, 6, 7, 11),
+        hourlyRate: 100,
+      ),
+      TimeEntry(
+        id: 2,
+        workplaceId: 1,
+        date: DateTime(2023, 11, 20),
+        startTime: DateTime(2023, 11, 20, 9),
+        endTime: DateTime(2023, 11, 20, 10),
+        hourlyRate: 100,
+      ),
+    ];
+    final slots = ChartTimeline.build(entries, start, end);
+    expect(slots.length, 365);
+    expect(slots.where((s) => s.hours > 0).length, 2);
+  });
+
+  test('build places entry on last day of long custom range', () {
+    final start = DateTime(2023, 1, 1);
+    final end = DateTime(2023, 12, 31);
+    final entries = [
+      TimeEntry(
+        id: 1,
+        workplaceId: 1,
+        date: DateTime(2023, 12, 31),
+        startTime: DateTime(2023, 12, 31, 9),
+        endTime: DateTime(2023, 12, 31, 11),
+        hourlyRate: 100,
+      ),
+    ];
+
+    final slots = ChartTimeline.build(entries, start, end);
+    expect(slots.length, 365);
+    expect(slots.last.hours, 2);
+    expect(slots.first.hours, 0);
+  });
+
   test('build stacks amounts per project per day', () {
     final start = DateTime(2026, 9, 25);
     final end = DateTime(2026, 9, 25);

@@ -28,7 +28,9 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedDay = DateTime.now();
+    final day = ref.read(calendarSelectedDayProvider);
+    _focusedDay = day;
+    _selectedDay = day;
     _loadMarkers();
   }
 
@@ -133,6 +135,15 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
           },
           onPageChanged: (day) {
             setState(() => _focusedDay = day);
+            _loadMarkers();
+          },
+          onJumpToToday: () {
+            final today = _dateOnly(DateTime.now());
+            setCalendarSelectedDay(ref, today);
+            setState(() {
+              _selectedDay = today;
+              _focusedDay = today;
+            });
             _loadMarkers();
           },
         ),
@@ -326,6 +337,7 @@ class _MonthView extends StatelessWidget {
     required this.monthEarned,
     required this.onDaySelected,
     required this.onPageChanged,
+    required this.onJumpToToday,
   });
 
   final DateTime focusedDay;
@@ -335,8 +347,32 @@ class _MonthView extends StatelessWidget {
   final double monthEarned;
   final ValueChanged<DateTime> onDaySelected;
   final ValueChanged<DateTime> onPageChanged;
+  final VoidCallback onJumpToToday;
 
   DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
+
+  static const _maxVisiblePreviews = 4;
+  static const _entryChipSlotHeight = 11.0;
+  static const _overflowLabelHeight = 9.0;
+
+  int _visiblePreviewCount(double maxHeight, int previewCount) {
+    if (maxHeight <= 0 || previewCount == 0) return 0;
+    final capped = previewCount.clamp(0, _maxVisiblePreviews);
+    final slotsForAll = capped * _entryChipSlotHeight;
+    if (slotsForAll <= maxHeight) return capped;
+    final slotsWithOverflow = slotsForAll + _overflowLabelHeight;
+    if (capped > 1 && slotsWithOverflow <= maxHeight) return capped;
+    final withoutOverflow =
+        (maxHeight / _entryChipSlotHeight).floor().clamp(0, capped);
+    if (withoutOverflow == 0) return 0;
+    final hidden = previewCount - withoutOverflow;
+    if (hidden > 0 &&
+        withoutOverflow * _entryChipSlotHeight + _overflowLabelHeight >
+            maxHeight) {
+      return (withoutOverflow - 1).clamp(0, capped);
+    }
+    return withoutOverflow;
+  }
 
   Widget _buildDayCell(
     BuildContext context,
@@ -369,10 +405,6 @@ class _MonthView extends StatelessWidget {
       );
     }
 
-    const maxVisible = 4;
-    final visible = previews.take(maxVisible).toList();
-    final hiddenCount = previews.length - visible.length;
-
     return SizedBox.expand(
       child: Container(
         margin: const EdgeInsets.all(1),
@@ -394,26 +426,38 @@ class _MonthView extends StatelessWidget {
           ),
           if (previews.isNotEmpty)
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(1, 0, 1, 1),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    for (final preview in visible)
-                      _MonthEntryChip(
-                        preview: preview,
-                        onPrimaryBackground: isSelected,
-                      ),
-                    if (hiddenCount > 0)
-                      Text(
-                        '+$hiddenCount',
-                        style: TextStyle(
-                          fontSize: 8,
-                          color: dayNumberColor.withValues(alpha: 0.85),
-                        ),
-                      ),
-                  ],
-                ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final visibleCount = _visiblePreviewCount(
+                    constraints.maxHeight,
+                    previews.length,
+                  );
+                  if (visibleCount == 0) return const SizedBox.shrink();
+                  final visible = previews.take(visibleCount).toList();
+                  final hiddenCount = previews.length - visible.length;
+
+                  return Padding(
+                    padding: const EdgeInsets.fromLTRB(1, 0, 1, 1),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final preview in visible)
+                          _MonthEntryChip(
+                            preview: preview,
+                            onPrimaryBackground: isSelected,
+                          ),
+                        if (hiddenCount > 0)
+                          Text(
+                            '+$hiddenCount',
+                            style: TextStyle(
+                              fontSize: 8,
+                              color: dayNumberColor.withValues(alpha: 0.85),
+                            ),
+                          ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
           ],
@@ -441,7 +485,11 @@ class _MonthView extends StatelessWidget {
             calendarFormat: CalendarFormat.month,
             shouldFillViewport: true,
             rowHeight: 72,
-            headerStyle: const HeaderStyle(formatButtonVisible: false),
+            headerStyle: HeaderStyle(
+              formatButtonVisible: false,
+              titleTextStyle:
+                  Theme.of(context).textTheme.titleMedium ?? const TextStyle(),
+            ),
             calendarStyle: CalendarStyle(
               cellMargin: EdgeInsets.zero,
               cellPadding: EdgeInsets.zero,
@@ -460,6 +508,28 @@ class _MonthView extends StatelessWidget {
               ),
             ),
             calendarBuilders: CalendarBuilders(
+              headerTitleBuilder: (context, month) {
+                final title = AppFormatters.monthYear(month);
+                return Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: onJumpToToday,
+                      style: TextButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text('Heute'),
+                    ),
+                  ],
+                );
+              },
               defaultBuilder: (context, day, focusedMonth) => _buildDayCell(
                 context,
                 day,

@@ -352,23 +352,68 @@ class DatabaseHelper {
     await db.delete('saved_invoices', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// Earliest and latest entry [date] values (calendar days), if any exist.
+  Future<({DateTime start, DateTime end})?> getEntryDateSpan() async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      'SELECT MIN(date) AS min_date, MAX(date) AS max_date FROM time_entries',
+    );
+    if (rows.isEmpty) return null;
+    final minRaw = rows.first['min_date'] as String?;
+    final maxRaw = rows.first['max_date'] as String?;
+    if (minRaw == null || maxRaw == null) return null;
+    return (
+      start: DateTime.parse(minRaw),
+      end: DateTime.parse(maxRaw),
+    );
+  }
+
   Future<List<WorkplaceSummary>> getWorkplaceSummaries({
     required DateTime start,
     required DateTime end,
   }) async {
     final workplaces = await getWorkplaces();
-    final entries = await getEntries(start: start, end: end);
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT workplace_id,
+        SUM(
+          CASE
+            WHEN strftime('%s', end_time) >= strftime('%s', start_time)
+            THEN (strftime('%s', end_time) - strftime('%s', start_time)) / 60.0
+            ELSE 0
+          END
+        ) AS total_minutes,
+        SUM(
+          CASE
+            WHEN strftime('%s', end_time) >= strftime('%s', start_time)
+            THEN (strftime('%s', end_time) - strftime('%s', start_time)) / 60.0
+              * hourly_rate / 60.0
+            ELSE 0
+          END
+        ) AS total_earned
+      FROM time_entries
+      WHERE date >= ? AND date <= ?
+      GROUP BY workplace_id
+      ''',
+      [_dateKey(start), _dateKey(end)],
+    );
+
+    final totalsByWorkplace = <int, ({double minutes, double earned})>{};
+    for (final row in rows) {
+      final id = row['workplace_id'] as int;
+      totalsByWorkplace[id] = (
+        minutes: (row['total_minutes'] as num?)?.toDouble() ?? 0,
+        earned: (row['total_earned'] as num?)?.toDouble() ?? 0,
+      );
+    }
+
     return workplaces.map((workplace) {
-      final workplaceEntries =
-          entries.where((e) => e.workplaceId == workplace.id);
-      final minutes =
-          workplaceEntries.fold<int>(0, (sum, e) => sum + e.durationMinutes);
-      final earned =
-          workplaceEntries.fold<double>(0, (sum, e) => sum + e.earned);
+      final totals = totalsByWorkplace[workplace.id];
       return WorkplaceSummary(
         workplace: workplace,
-        hours: minutes / 60,
-        earned: earned,
+        hours: (totals?.minutes ?? 0) / 60,
+        earned: totals?.earned ?? 0,
       );
     }).toList();
   }

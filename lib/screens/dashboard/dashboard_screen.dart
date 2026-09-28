@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
 import '../../widgets/date_range_selector.dart';
@@ -13,71 +14,99 @@ class DashboardScreen extends ConsumerWidget {
     final range = ref.watch(appStateProvider).dateRange;
     final summariesAsync = ref.watch(workplaceSummariesProvider(range));
 
-    return summariesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Fehler: $e')),
-      data: (summaries) {
-        final totalHours =
-            summaries.fold<double>(0, (sum, item) => sum + item.hours);
-        final totalEarned =
-            summaries.fold<double>(0, (sum, item) => sum + item.earned);
-
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            const DateRangeSelector(),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Expanded(
-                  child: _SummaryCard(
-                    title: 'Gesamtstunden',
-                    value: AppFormatters.hours(totalHours),
-                    icon: Icons.schedule,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _SummaryCard(
-                    title: 'Gesamtverdienst',
-                    value: AppFormatters.money(totalEarned),
-                    icon: Icons.euro,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Nach Arbeitgeber',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 8),
-            if (summaries.isEmpty)
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(24),
-                  child: Text('Noch keine Arbeitgeber angelegt.'),
-                ),
-              )
-            else
-              ...summaries.map(
-                (summary) => Card(
-                  child: ListTile(
-                    title: Text(summary.workplace.name),
-                    subtitle: Text(AppFormatters.hours(summary.hours)),
-                    trailing: Text(
-                      AppFormatters.money(summary.earned),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    onTap: () => ref
-                        .read(appStateProvider.notifier)
-                        .selectWorkplace(summary.workplace.id),
-                  ),
-                ),
-              ),
-          ],
-        );
+    ref.listen(
+      workplaceSummariesProvider(range),
+      (_, next) {
+        next.whenData((summaries) {
+          ref.read(workplaceSummariesCacheProvider.notifier).state =
+              CachedWorkplaceSummaries(range: range, summaries: summaries);
+        });
       },
+    );
+
+    final cache = ref.watch(workplaceSummariesCacheProvider);
+    final cachedSummaries =
+        cache != null && cache.range == range ? cache.summaries : null;
+
+    return summariesAsync.when(
+      loading: () {
+        if (cachedSummaries != null) {
+          return _DashboardBody(summaries: cachedSummaries);
+        }
+        return const Center(child: CircularProgressIndicator());
+      },
+      error: (e, _) => Center(child: Text('Fehler: $e')),
+      data: (summaries) => _DashboardBody(summaries: summaries),
+    );
+  }
+}
+
+class _DashboardBody extends ConsumerWidget {
+  const _DashboardBody({required this.summaries});
+
+  final List<WorkplaceSummary> summaries;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final totalHours =
+        summaries.fold<double>(0, (sum, item) => sum + item.hours);
+    final totalEarned =
+        summaries.fold<double>(0, (sum, item) => sum + item.earned);
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const DateRangeSelector(),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: _SummaryCard(
+                title: 'Gesamtstunden',
+                value: AppFormatters.hours(totalHours),
+                icon: Icons.schedule,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _SummaryCard(
+                title: 'Gesamtverdienst',
+                value: AppFormatters.money(totalEarned),
+                icon: Icons.euro,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Nach Arbeitgeber',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        const SizedBox(height: 8),
+        if (summaries.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: Text('Noch keine Arbeitgeber angelegt.'),
+            ),
+          )
+        else
+          ...summaries.map(
+            (summary) => Card(
+              child: ListTile(
+                title: Text(summary.workplace.name),
+                subtitle: Text(AppFormatters.hours(summary.hours)),
+                trailing: Text(
+                  AppFormatters.money(summary.earned),
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                onTap: () => ref
+                    .read(appStateProvider.notifier)
+                    .selectWorkplace(summary.workplace.id),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/providers.dart';
 import '../services/formatters.dart';
+import '../utils/date_range_preset.dart';
 import 'workplace_filter_chips.dart';
 
 class DateRangeSelector extends ConsumerWidget {
@@ -24,6 +25,13 @@ class DateRangeSelector extends ConsumerWidget {
     final appState = ref.watch(appStateProvider);
     final range = appState.dateRange;
     final workplaces = appState.workplaces;
+    final activePreset = detectDateRangePreset(range);
+
+    final rangeStyle = prominentRangeLabel
+        ? Theme.of(context).textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w600,
+            )
+        : Theme.of(context).textTheme.titleMedium;
 
     return Card(
       child: Padding(
@@ -31,38 +39,45 @@ class DateRangeSelector extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              AppFormatters.dateRange(range.start, range.end),
-              style: prominentRangeLabel
-                  ? Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      )
-                  : Theme.of(context).textTheme.titleMedium,
-              textAlign: TextAlign.center,
+            InkWell(
+              onTap: () => _pickCustom(context, ref),
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Text(
+                  AppFormatters.dateRange(range.start, range.end),
+                  style: rangeStyle,
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _QuickChip(
-                    label: 'Woche',
-                    onTap: () => _setQuickRange(ref, 7),
+                  FilterChip(
+                    label: const Text('Woche'),
+                    selected: activePreset == DateRangePreset.week,
+                    onSelected: (_) => _setQuickRange(ref, 7),
                   ),
                   const SizedBox(width: 8),
-                  _QuickChip(
-                    label: '2 Wochen',
-                    onTap: () => _setQuickRange(ref, 14),
+                  FilterChip(
+                    label: const Text('2 Wochen'),
+                    selected: activePreset == DateRangePreset.twoWeeks,
+                    onSelected: (_) => _setQuickRange(ref, 14),
                   ),
                   const SizedBox(width: 8),
-                  _QuickChip(
-                    label: 'Monat',
-                    onTap: () => _setMonth(ref),
+                  FilterChip(
+                    label: const Text('Monat'),
+                    selected: activePreset == DateRangePreset.month,
+                    onSelected: (_) => _setMonth(ref),
                   ),
                   const SizedBox(width: 8),
-                  ActionChip(
+                  FilterChip(
                     label: const Text('Benutzerdefiniert'),
-                    onPressed: () => _pickCustom(context, ref),
+                    selected: activePreset == DateRangePreset.custom,
+                    onSelected: (_) => _pickCustom(context, ref),
                   ),
                 ],
               ),
@@ -115,20 +130,19 @@ class DateRangeSelector extends ConsumerWidget {
     );
     if (picked != null) {
       await ref.read(appStateProvider.notifier).setCustomDateRange(
-            DateRange(start: picked.start, end: picked.end),
+            DateRange(
+              start: DateTime(
+                picked.start.year,
+                picked.start.month,
+                picked.start.day,
+              ),
+              end: DateTime(
+                picked.end.year,
+                picked.end.month,
+                picked.end.day,
+              ),
+            ),
           );
     }
-  }
-}
-
-class _QuickChip extends StatelessWidget {
-  const _QuickChip({required this.label, required this.onTap});
-
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return ActionChip(label: Text(label), onPressed: onTap);
   }
 }

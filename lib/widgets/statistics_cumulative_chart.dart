@@ -11,9 +11,13 @@ class StatisticsCumulativeChart extends StatelessWidget {
   const StatisticsCumulativeChart({
     super.key,
     required this.slots,
+    required this.rangeStart,
+    required this.rangeEnd,
   });
 
   final List<ChartDaySlot> slots;
+  final DateTime rangeStart;
+  final DateTime rangeEnd;
 
   @override
   Widget build(BuildContext context) {
@@ -39,8 +43,10 @@ class StatisticsCumulativeChart extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final labelInterval =
-            chartAxisLabelInterval(slots.length, constraints.maxWidth);
+        final labelInterval = chartAxisLabelInterval(
+          slots.length,
+          constraints.maxWidth,
+        );
 
         return LineChart(
           LineChartData(
@@ -53,7 +59,7 @@ class StatisticsCumulativeChart extends StatelessWidget {
               leftTitles: AxisTitles(
                 sideTitles: SideTitles(
                   showTitles: true,
-                  reservedSize: 36,
+                  reservedSize: 28,
                   interval: yScale.interval,
                   getTitlesWidget: (value, meta) {
                     if (value < 0 ||
@@ -88,6 +94,7 @@ class StatisticsCumulativeChart extends StatelessWidget {
                       index: i,
                       pointCount: slots.length,
                       interval: labelInterval,
+                      chartWidth: constraints.maxWidth,
                     )) {
                       return const SizedBox.shrink();
                     }
@@ -99,7 +106,13 @@ class StatisticsCumulativeChart extends StatelessWidget {
                             ? TextAlign.right
                             : TextAlign.center;
                     final label = Text(
-                      slots[i].label,
+                      chartBottomAxisLabel(
+                        index: i,
+                        pointCount: slots.length,
+                        rangeStart: rangeStart,
+                        rangeEnd: rangeEnd,
+                        slotDay: slots[i].day,
+                      ),
                       style: labelStyle?.copyWith(fontWeight: FontWeight.w500),
                       textAlign: textAlign,
                     );
