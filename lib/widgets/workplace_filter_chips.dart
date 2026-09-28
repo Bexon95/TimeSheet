@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../database/models.dart';
 
@@ -30,6 +29,7 @@ class WorkplaceFilterChips extends StatelessWidget {
             padding: const EdgeInsets.only(right: 8),
             child: FilterChip(
               label: const Text('Alle'),
+              showCheckmark: false,
               selected: selectedWorkplaceId == null,
               onSelected: (_) => onSelected(null),
             ),
@@ -39,6 +39,7 @@ class WorkplaceFilterChips extends StatelessWidget {
               padding: const EdgeInsets.only(right: 8),
               child: FilterChip(
                 label: Text(workplace.name),
+                showCheckmark: false,
                 selected: selectedWorkplaceId == workplace.id,
                 onSelected: (_) => onSelected(workplace.id),
               ),

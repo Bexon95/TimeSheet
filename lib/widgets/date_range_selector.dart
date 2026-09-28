@@ -25,7 +25,11 @@ class DateRangeSelector extends ConsumerWidget {
     final appState = ref.watch(appStateProvider);
     final range = appState.dateRange;
     final workplaces = appState.workplaces;
-    final activePreset = detectDateRangePreset(range);
+    final entrySpan = ref.watch(entryDateSpanProvider).valueOrNull;
+    final activePreset = detectDateRangePreset(
+      range,
+      fullEntrySpan: entrySpan,
+    );
 
     final rangeStyle = prominentRangeLabel
         ? Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -58,26 +62,37 @@ class DateRangeSelector extends ConsumerWidget {
                 children: [
                   FilterChip(
                     label: const Text('Woche'),
+                    showCheckmark: false,
                     selected: activePreset == DateRangePreset.week,
                     onSelected: (_) => _setQuickRange(ref, 7),
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
                     label: const Text('2 Wochen'),
+                    showCheckmark: false,
                     selected: activePreset == DateRangePreset.twoWeeks,
                     onSelected: (_) => _setQuickRange(ref, 14),
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
                     label: const Text('Monat'),
+                    showCheckmark: false,
                     selected: activePreset == DateRangePreset.month,
                     onSelected: (_) => _setMonth(ref),
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
                     label: const Text('Benutzerdefiniert'),
+                    showCheckmark: false,
                     selected: activePreset == DateRangePreset.custom,
                     onSelected: (_) => _pickCustom(context, ref),
+                  ),
+                  const SizedBox(width: 8),
+                  FilterChip(
+                    label: const Text('Alle'),
+                    showCheckmark: false,
+                    selected: activePreset == DateRangePreset.all,
+                    onSelected: (_) => _setAll(context, ref),
                   ),
                 ],
               ),
@@ -116,6 +131,26 @@ class DateRangeSelector extends ConsumerWidget {
             end: DateTime(now.year, now.month + 1, 0),
           ),
         );
+  }
+
+  Future<void> _setAll(BuildContext context, WidgetRef ref) async {
+    var range = ref.read(entryDateSpanProvider).valueOrNull;
+    if (range == null) {
+      final span = await ref.read(databaseProvider).getEntryDateSpan();
+      if (span == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Noch keine Einträge vorhanden.')),
+          );
+        }
+        return;
+      }
+      range = DateRange(
+        start: DateTime(span.start.year, span.start.month, span.start.day),
+        end: DateTime(span.end.year, span.end.month, span.end.day),
+      );
+    }
+    await ref.read(appStateProvider.notifier).setDateRange(range);
   }
 
   Future<void> _pickCustom(BuildContext context, WidgetRef ref) async {

@@ -24,6 +24,17 @@ void bumpRefresh(WidgetRef ref) {
   ref.read(refreshTriggerProvider.notifier).state++;
 }
 
+/// Full calendar span of stored time entries (all workplaces), if any.
+final entryDateSpanProvider = FutureProvider<DateRange?>((ref) async {
+  ref.watch(refreshTriggerProvider);
+  final span = await ref.read(databaseProvider).getEntryDateSpan();
+  if (span == null) return null;
+  return DateRange(
+    start: DateTime(span.start.year, span.start.month, span.start.day),
+    end: DateTime(span.end.year, span.end.month, span.end.day),
+  );
+});
+
 enum AppThemeMode { system, light, dark }
 
 final themeModeProvider =
