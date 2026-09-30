@@ -18,6 +18,7 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
   final _senderSsn = TextEditingController();
   final _vatText = TextEditingController();
   final _paymentText = TextEditingController();
+  final _footnoteText = TextEditingController();
   final _iban = TextEditingController();
   final _bic = TextEditingController();
   bool _loaded = false;
@@ -29,6 +30,7 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
     _senderSsn.dispose();
     _vatText.dispose();
     _paymentText.dispose();
+    _footnoteText.dispose();
     _iban.dispose();
     _bic.dispose();
     super.dispose();
@@ -41,6 +43,7 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
     _senderSsn.text = settings.senderSsn;
     _vatText.text = settings.vatText;
     _paymentText.text = settings.paymentText;
+    _footnoteText.text = settings.footnoteText;
     _iban.text = settings.iban;
     _bic.text = settings.bic;
     _loaded = true;
@@ -55,6 +58,7 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
             senderSsn: _senderSsn.text.trim(),
             vatText: _vatText.text.trim(),
             paymentText: _paymentText.text.trim(),
+            footnoteText: _footnoteText.text.trim(),
             iban: _iban.text.trim(),
             bic: _bic.text.trim(),
           ),
@@ -82,67 +86,117 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              Text(
-                'Meine Daten',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _senderName,
-                decoration: const InputDecoration(labelText: 'Name'),
-              ),
-              TextField(
-                controller: _senderAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Adresse',
-                  hintText: 'Straße\nPLZ Ort',
-                ),
-                maxLines: 4,
-              ),
-              TextField(
-                controller: _senderSsn,
-                decoration: const InputDecoration(
-                  labelText: 'SVNr.',
-                  hintText: '1234 010195',
-                ),
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Zahlungsinformationen',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _iban,
-                decoration: const InputDecoration(
-                  labelText: 'IBAN',
-                  hintText: 'AT65 1111 2222 3333 4444',
-                ),
-              ),
-              TextField(
-                controller: _bic,
-                decoration: const InputDecoration(
-                  labelText: 'BIC',
-                  hintText: 'GIBAATWWXXX',
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Meine Daten',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _senderName,
+                        decoration: const InputDecoration(labelText: 'Name'),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _senderAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Adresse',
+                          hintText: 'Straße\nPLZ Ort',
+                        ),
+                        minLines: 1,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _senderSsn,
+                        decoration: const InputDecoration(
+                          labelText: 'SVNr.',
+                          hintText: '1234 010195',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              TextField(
-                controller: _paymentText,
-                decoration: const InputDecoration(
-                  labelText: 'Zahlungshinweis',
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Zahlungsinformationen',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _iban,
+                        decoration: const InputDecoration(
+                          labelText: 'IBAN',
+                          hintText: 'AT65 1111 2222 3333 4444',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _bic,
+                        decoration: const InputDecoration(
+                          labelText: 'BIC',
+                          hintText: 'GIBAATWWXXX',
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                maxLines: 2,
               ),
-              const SizedBox(height: 24),
-              Text(
-                'Rechnungstexte',
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _vatText,
-                decoration: const InputDecoration(labelText: 'USt-Text'),
-                maxLines: 2,
+              const SizedBox(height: 12),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Rechnungstexte & Zahlung',
+                        style: Theme.of(context).textTheme.titleSmall,
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: _vatText,
+                        decoration: const InputDecoration(labelText: 'USt-Text'),
+                        minLines: 1,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _paymentText,
+                        decoration: const InputDecoration(
+                          labelText: 'Zahlungshinweis',
+                        ),
+                        minLines: 1,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                      ),
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _footnoteText,
+                        decoration: const InputDecoration(
+                          labelText: 'Fußnote',
+                        ),
+                        minLines: 1,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                      ),
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
               FilledButton(

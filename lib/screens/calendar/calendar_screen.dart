@@ -159,13 +159,14 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
       CalendarViewMode.week => _WeekView(
           workplace: workplace,
           focusedDay: _focusedDay,
-          onDaySelected: (day) {
+          onDayHighlighted: (day) {
             setCalendarSelectedDay(ref, day);
-            setState(() {
-              _selectedDay = day;
-              _focusedDay = day;
-            });
-            _showDaySheet(context, workplace, day);
+            setState(() => _selectedDay = day);
+          },
+          onAddForDay: (day) {
+            setCalendarSelectedDay(ref, day);
+            setState(() => _selectedDay = day);
+            requestCalendarPlusMenu(ref);
           },
           onWeekChanged: (monday) {
             setCalendarSelectedDay(ref, monday);
@@ -672,18 +673,25 @@ class _MonthEntryChip extends StatelessWidget {
   }
 }
 
+class _WeekDayData {
+  final List<TimeEntry> entries = [];
+  double earned = 0;
+}
+
 class _WeekView extends ConsumerStatefulWidget {
   const _WeekView({
     required this.workplace,
     required this.focusedDay,
-    required this.onDaySelected,
+    required this.onDayHighlighted,
+    required this.onAddForDay,
     required this.onWeekChanged,
     required this.onJumpToThisWeek,
   });
 
   final Workplace workplace;
   final DateTime focusedDay;
-  final ValueChanged<DateTime> onDaySelected;
+  final ValueChanged<DateTime> onDayHighlighted;
+  final ValueChanged<DateTime> onAddForDay;
   final ValueChanged<DateTime> onWeekChanged;
   final VoidCallback onJumpToThisWeek;
 
@@ -692,13 +700,17 @@ class _WeekView extends ConsumerStatefulWidget {
 }
 
 class _WeekViewState extends ConsumerState<_WeekView> {
-  List<TimeEntry> _entries = [];
+  Map<DateTime, _WeekDayData> _dayData = {};
   Map<int, Project> _projects = {};
   bool _loading = true;
   double _weekHours = 0;
   double _weekEarned = 0;
 
+  static const _weekendColor = Color(0xFFFFD54F);
+
   DateTime get _monday => IsoWeek.mondayOf(widget.focusedDay);
+
+  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
 
   @override
   void initState() {
@@ -726,15 +738,23 @@ class _WeekViewState extends ConsumerState<_WeekView> {
     );
     final projects = await DatabaseHelper.instance
         .getProjectsForWorkplace(widget.workplace.id);
+    final data = <DateTime, _WeekDayData>{};
     var hours = 0.0;
     var earned = 0.0;
     for (final entry in entries) {
       hours += entry.hours;
       earned += entry.earned;
+      final day = _dateOnly(entry.date);
+      final bucket = data.putIfAbsent(day, () => _WeekDayData());
+      bucket.entries.add(entry);
+      bucket.earned += entry.earned;
+    }
+    for (final bucket in data.values) {
+      bucket.entries.sort((a, b) => a.startTime.compareTo(b.startTime));
     }
     if (mounted) {
       setState(() {
-        _entries = entries;
+        _dayData = data;
         _projects = {for (final p in projects) p.id: p};
         _weekHours = hours;
         _weekEarned = earned;
@@ -752,11 +772,8 @@ class _WeekViewState extends ConsumerState<_WeekView> {
     ref.listen(refreshTriggerProvider, (_, __) => _loadWeek());
 
     final theme = Theme.of(context);
-    final weekendColor = Colors.amber.shade400;
-    final days = List.generate(
-      7,
-      (i) => _monday.add(Duration(days: i)),
-    );
+    final selectedDay = ref.watch(calendarSelectedDayProvider);
+    final days = List.generate(7, (i) => _dateOnly(_monday.add(Duration(days: i))));
     final todayMonday = IsoWeek.mondayOf(DateTime.now());
     final isCurrentWeek = todayMonday.year == _monday.year &&
         todayMonday.month == _monday.month &&
@@ -822,44 +839,6 @@ class _WeekViewState extends ConsumerState<_WeekView> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Row(
-              children: [
-                for (final day in days)
-                  Expanded(
-                    child: InkWell(
-                      onTap: () => widget.onDaySelected(day),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Column(
-                          children: [
-                            Text(
-                              '${day.day}',
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: day.weekday >= DateTime.saturday
-                                    ? weekendColor
-                                    : null,
-                              ),
-                            ),
-                            Text(
-                              AppFormatters.weekdayShort(day),
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: day.weekday >= DateTime.saturday
-                                    ? weekendColor
-                                    : theme.colorScheme.onSurfaceVariant,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
@@ -870,7 +849,7 @@ class _WeekViewState extends ConsumerState<_WeekView> {
                   ),
                 ),
                 Text(
-                  AppFormatters.compactEarned(_weekEarned),
+                  AppFormatters.money(_weekEarned),
                   style: theme.textTheme.bodySmall?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -882,26 +861,134 @@ class _WeekViewState extends ConsumerState<_WeekView> {
           Expanded(
             child: _loading
                 ? const Center(child: CircularProgressIndicator())
-                : _entries.isEmpty
-                    ? const Center(child: Text('Keine Einträge in dieser Woche.'))
-                    : ListView.builder(
-                        padding: const EdgeInsets.only(bottom: 16),
-                        itemCount: _entries.length,
-                        itemBuilder: (context, index) {
-                          final entry = _entries[index];
-                          return WeekEntryRow(
-                            entry: entry,
-                            workplace: widget.workplace,
-                            project: entry.projectId != null
-                                ? _projects[entry.projectId]
-                                : null,
-                            onChanged: () {
-                              bumpRefresh(ref);
-                              _loadWeek();
-                            },
-                          );
-                        },
-                      ),
+                : ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(8, 0, 8, 16),
+                    itemCount: days.length,
+                    itemBuilder: (context, index) {
+                      final day = days[index];
+                      final data = _dayData[day];
+                      final dayEntries = data?.entries ?? const <TimeEntry>[];
+                      final hasEntries = dayEntries.isNotEmpty;
+                      final isSelected = selectedDay.year == day.year &&
+                          selectedDay.month == day.month &&
+                          selectedDay.day == day.day;
+                      final isWeekend = day.weekday >= DateTime.saturday;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Card(
+                          clipBehavior: Clip.antiAlias,
+                          color: isSelected
+                              ? theme.colorScheme.primaryContainer
+                                  .withValues(alpha: 0.45)
+                              : null,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  onTap: () => widget.onDayHighlighted(day),
+                                  child: Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      12,
+                                      10,
+                                      4,
+                                      10,
+                                    ),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        SizedBox(
+                                          width: 32,
+                                          child: Column(
+                                            children: [
+                                              Text(
+                                                '${day.day}',
+                                                style: theme
+                                                    .textTheme.titleSmall
+                                                    ?.copyWith(
+                                                  fontWeight: FontWeight.w600,
+                                                  height: 1.1,
+                                                  color: isWeekend
+                                                      ? _weekendColor
+                                                      : null,
+                                                ),
+                                              ),
+                                              Text(
+                                                AppFormatters.weekdayShort(day),
+                                                style: theme
+                                                    .textTheme.labelSmall
+                                                    ?.copyWith(
+                                                  height: 1.1,
+                                                  color: isWeekend
+                                                      ? _weekendColor
+                                                      : theme.colorScheme
+                                                          .onSurfaceVariant,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: hasEntries
+                                              ? Text(
+                                                  AppFormatters.money(
+                                                    data!.earned,
+                                                  ),
+                                                  style: theme
+                                                      .textTheme.bodyMedium
+                                                      ?.copyWith(
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                )
+                                              : Text(
+                                                  'Keine Einträge',
+                                                  style: theme
+                                                      .textTheme.bodyMedium
+                                                      ?.copyWith(
+                                                    color: theme.colorScheme
+                                                        .onSurfaceVariant,
+                                                  ),
+                                                ),
+                                        ),
+                                        IconButton(
+                                          icon: const Icon(Icons.add, size: 22),
+                                          tooltip: 'Eintrag hinzufügen',
+                                          visualDensity: VisualDensity.compact,
+                                          onPressed: () =>
+                                              widget.onAddForDay(day),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              if (hasEntries) ...[
+                                const Divider(height: 1),
+                                ...dayEntries.map(
+                                  (entry) => WeekEntryRow(
+                                    entry: entry,
+                                    workplace: widget.workplace,
+                                    project: entry.projectId != null
+                                        ? _projects[entry.projectId]
+                                        : null,
+                                    showDateColumn: false,
+                                    onChanged: () {
+                                      bumpRefresh(ref);
+                                      _loadWeek();
+                                    },
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),

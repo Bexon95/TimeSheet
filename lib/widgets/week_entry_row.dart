@@ -12,12 +12,14 @@ class WeekEntryRow extends StatelessWidget {
     required this.workplace,
     this.project,
     required this.onChanged,
+    this.showDateColumn = true,
   });
 
   final TimeEntry entry;
   final Workplace workplace;
   final Project? project;
   final VoidCallback onChanged;
+  final bool showDateColumn;
 
   static const _weekendColor = Color(0xFFFFD54F);
 
@@ -36,32 +38,34 @@ class WeekEntryRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: 32,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '${entry.date.day}',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      height: 1.1,
-                      color: isWeekend ? _weekendColor : null,
+            if (showDateColumn) ...[
+              SizedBox(
+                width: 32,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '${entry.date.day}',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        height: 1.1,
+                        color: isWeekend ? _weekendColor : null,
+                      ),
                     ),
-                  ),
-                  Text(
-                    AppFormatters.weekdayShort(entry.date),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      height: 1.1,
-                      color: isWeekend
-                          ? _weekendColor
-                          : theme.colorScheme.onSurfaceVariant,
+                    Text(
+                      AppFormatters.weekdayShort(entry.date),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        height: 1.1,
+                        color: isWeekend
+                            ? _weekendColor
+                            : theme.colorScheme.onSurfaceVariant,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 6),
+              const SizedBox(width: 6),
+            ],
             Expanded(
               child: Material(
                 color: barColor.withValues(alpha: 0.55),

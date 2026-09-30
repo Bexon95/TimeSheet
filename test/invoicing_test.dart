@@ -9,7 +9,7 @@ Future<DatabaseHelper> _openTestDb() async {
   return DatabaseHelper.openForTesting(
     () => openDatabase(
       inMemoryDatabasePath,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await db.execute('''
           CREATE TABLE workplaces (
@@ -37,7 +37,10 @@ Future<DatabaseHelper> _openTestDb() async {
             pdf_file_path TEXT NOT NULL,
             sender_snapshot TEXT NOT NULL DEFAULT '',
             footer_snapshot TEXT NOT NULL DEFAULT '',
-            teilbetrag_label TEXT NOT NULL DEFAULT 'Betrag'
+            teilbetrag_label TEXT NOT NULL DEFAULT 'Betrag',
+            vat_text_snapshot TEXT NOT NULL DEFAULT '',
+            payment_text_snapshot TEXT NOT NULL DEFAULT '',
+            footnote_text_snapshot TEXT NOT NULL DEFAULT ''
           )
         ''');
         await db.execute('''

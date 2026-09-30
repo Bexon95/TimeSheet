@@ -68,8 +68,16 @@ class PdfInvoiceService {
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(48),
         build: (context) {
-          final paymentLine = paymentTextFor(settings);
-          return pw.Column(
+          final vatText = invoice.vatTextSnapshot.isNotEmpty
+              ? invoice.vatTextSnapshot
+              : settings.vatText;
+          final paymentLine = invoice.paymentTextSnapshot.isNotEmpty
+              ? invoice.paymentTextSnapshot.trim()
+              : paymentTextFor(settings);
+          final footnoteText = invoice.footnoteTextSnapshot.isNotEmpty
+              ? invoice.footnoteTextSnapshot
+              : settings.footnoteText;
+          final body = pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Column(
@@ -154,7 +162,7 @@ class PdfInvoiceService {
                 ),
               ),
               pw.SizedBox(height: 24),
-              if (settings.vatText.isNotEmpty) pw.Text(settings.vatText),
+              if (vatText.isNotEmpty) pw.Text(vatText),
               if (paymentLine.isNotEmpty ||
                   settings.iban.isNotEmpty ||
                   settings.bic.isNotEmpty) ...[
@@ -171,6 +179,30 @@ class PdfInvoiceService {
                     child: pw.Text('BIC ${settings.bic}'),
                   ),
               ],
+            ],
+          );
+
+          if (footnoteText.isEmpty) {
+            return body;
+          }
+
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.stretch,
+            children: [
+              pw.Expanded(child: body),
+              pw.Container(
+                width: double.infinity,
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    top: pw.BorderSide(width: 0.5),
+                  ),
+                ),
+                padding: const pw.EdgeInsets.only(top: 8),
+                child: pw.Text(
+                  footnoteText,
+                  style: const pw.TextStyle(fontSize: 8),
+                ),
+              ),
             ],
           );
         },

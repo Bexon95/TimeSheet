@@ -9,7 +9,7 @@ import '../widgets/time_entry_form.dart';
 import '../widgets/timer_banner.dart';
 import '../widgets/workplace_app_bar.dart';
 import '../widgets/workplace_drawer.dart';
-import 'calendar/calendar_view_mode.dart' show CalendarViewModeMenu, calendarSelectedDayProvider;
+import 'calendar/calendar_view_mode.dart' show CalendarViewModeMenu, calendarPlusMenuRequestProvider, calendarSelectedDayProvider;
 import 'calendar/calendar_screen.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'invoice/invoice_screen.dart';
@@ -38,6 +38,12 @@ class _HomeShellState extends ConsumerState<HomeShell> {
   @override
   Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
+
+    ref.listen(calendarPlusMenuRequestProvider, (previous, next) {
+      if (previous != next) {
+        _showPlusMenu();
+      }
+    });
 
     if (appState.isLoading) {
       return Scaffold(

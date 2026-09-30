@@ -26,6 +26,13 @@ void setCalendarSelectedDay(WidgetRef ref, DateTime day) {
   ref.read(calendarSelectedDayProvider.notifier).state = _dateOnly(day);
 }
 
+/// Increment to open the bottom-nav plus menu from the calendar (e.g. week day row).
+final calendarPlusMenuRequestProvider = StateProvider<int>((ref) => 0);
+
+void requestCalendarPlusMenu(WidgetRef ref) {
+  ref.read(calendarPlusMenuRequestProvider.notifier).update((n) => n + 1);
+}
+
 class CalendarViewModeMenu extends ConsumerWidget {
   const CalendarViewModeMenu({super.key});
 

@@ -36,6 +36,9 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
   final _recipientNameController = TextEditingController();
   final _recipientAddressController = TextEditingController();
   final _teilbetragController = TextEditingController(text: 'Betrag');
+  final _vatTextController = TextEditingController();
+  final _paymentTextController = TextEditingController();
+  final _footnoteTextController = TextEditingController();
   final List<TextEditingController> _bulletControllers = [];
   bool _initialized = false;
   DateTime _invoiceDate = dateOnly(DateTime.now());
@@ -50,6 +53,9 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
     _recipientNameController.dispose();
     _recipientAddressController.dispose();
     _teilbetragController.dispose();
+    _vatTextController.dispose();
+    _paymentTextController.dispose();
+    _footnoteTextController.dispose();
     for (final c in _bulletControllers) {
       c.dispose();
     }
@@ -97,6 +103,16 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       _titleController.text = existing.title;
       _amountController.text = existing.amount.toStringAsFixed(2);
       _teilbetragController.text = existing.teilbetragLabel;
+      final settings = await db.getInvoiceSettings();
+      _vatTextController.text = existing.vatTextSnapshot.isNotEmpty
+          ? existing.vatTextSnapshot
+          : settings.vatText;
+      _paymentTextController.text = existing.paymentTextSnapshot.isNotEmpty
+          ? existing.paymentTextSnapshot
+          : settings.paymentText;
+      _footnoteTextController.text = existing.footnoteTextSnapshot.isNotEmpty
+          ? existing.footnoteTextSnapshot
+          : settings.footnoteText;
       _bulletControllers.clear();
       if (existing.bulletLines.isEmpty) {
         _bulletControllers.add(TextEditingController());
@@ -114,9 +130,13 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
 
     final range = ref.read(appStateProvider).dateRange;
     final invoiceNumber = await db.suggestInvoiceNumber();
+    final settings = await db.getInvoiceSettings();
     _invoiceNumberController.text = invoiceNumber;
     _recipientNameController.text = widget.workplace.recipientName;
     _recipientAddressController.text = widget.workplace.recipientAddress;
+    _vatTextController.text = settings.vatText;
+    _paymentTextController.text = settings.paymentText;
+    _footnoteTextController.text = settings.footnoteText;
     await _initializeFromEntries(range);
     _lastRangeKeyStart = range.start;
     _lastRangeKeyEnd = range.end;
@@ -198,6 +218,9 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
         senderSnapshot: draft.senderSnapshot,
         footerSnapshot: draft.footerSnapshot,
         teilbetragLabel: draft.teilbetragLabel,
+        vatTextSnapshot: draft.vatTextSnapshot,
+        paymentTextSnapshot: draft.paymentTextSnapshot,
+        footnoteTextSnapshot: draft.footnoteTextSnapshot,
       );
       await db.updateSavedInvoice(updated);
       if (oldPath != file.path) {
@@ -227,6 +250,9 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       senderSnapshot: _senderSnapshot(settings),
       footerSnapshot: _footerSnapshot(settings),
       teilbetragLabel: draft.teilbetragLabel,
+      vatTextSnapshot: draft.vatTextSnapshot,
+      paymentTextSnapshot: draft.paymentTextSnapshot,
+      footnoteTextSnapshot: draft.footnoteTextSnapshot,
     );
     final invoiceId = await db.insertSavedInvoice(saved);
     await db.markEntriesInvoiced(
@@ -257,13 +283,9 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
   }
 
   String _footerSnapshot(InvoiceSettings settings) {
-    if (widget.existingInvoice != null &&
-        widget.existingInvoice!.footerSnapshot.isNotEmpty) {
-      return widget.existingInvoice!.footerSnapshot;
-    }
     return [
-      settings.vatText,
-      settings.paymentText,
+      _vatTextController.text.trim(),
+      _paymentTextController.text.trim(),
       if (settings.iban.isNotEmpty) settings.iban,
       if (settings.bic.isNotEmpty) 'BIC ${settings.bic}',
     ].where((line) => line.isNotEmpty).join('\n');
@@ -295,6 +317,9 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       senderSnapshot: _senderSnapshot(settings),
       footerSnapshot: _footerSnapshot(settings),
       teilbetragLabel: _teilbetragController.text.trim(),
+      vatTextSnapshot: _vatTextController.text.trim(),
+      paymentTextSnapshot: _paymentTextController.text.trim(),
+      footnoteTextSnapshot: _footnoteTextController.text.trim(),
     );
   }
 
@@ -471,6 +496,49 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
                     keyboardType:
                         const TextInputType.numberWithOptions(decimal: true),
                     decoration: const InputDecoration(labelText: 'Betrag (EUR)'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Rechnungstexte & Zahlung',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _vatTextController,
+                    decoration: const InputDecoration(labelText: 'USt-Text'),
+                    minLines: 1,
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _paymentTextController,
+                    decoration: const InputDecoration(
+                      labelText: 'Zahlungshinweis',
+                    ),
+                    minLines: 1,
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _footnoteTextController,
+                    decoration: const InputDecoration(
+                      labelText: 'Fußnote',
+                    ),
+                    minLines: 1,
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
                   ),
                 ],
               ),

@@ -20,7 +20,7 @@ class DatabaseHelper {
     final path = join(dbPath, 'timesheet.db');
     return openDatabase(
       path,
-      version: 2,
+      version: 3,
       onCreate: (db, version) async {
         await _createSchema(db);
       },
@@ -30,6 +30,20 @@ class DatabaseHelper {
             'ALTER TABLE time_entries ADD COLUMN invoiced_invoice_id INTEGER',
           );
           await _backfillInvoicedFromSavedInvoices(db);
+        }
+        if (oldVersion < 3) {
+          await db.execute(
+            "ALTER TABLE invoice_settings ADD COLUMN footnote_text TEXT NOT NULL DEFAULT ''",
+          );
+          await db.execute(
+            "ALTER TABLE saved_invoices ADD COLUMN vat_text_snapshot TEXT NOT NULL DEFAULT ''",
+          );
+          await db.execute(
+            "ALTER TABLE saved_invoices ADD COLUMN payment_text_snapshot TEXT NOT NULL DEFAULT ''",
+          );
+          await db.execute(
+            "ALTER TABLE saved_invoices ADD COLUMN footnote_text_snapshot TEXT NOT NULL DEFAULT ''",
+          );
         }
       },
     );
@@ -79,6 +93,7 @@ class DatabaseHelper {
             sender_ssn TEXT NOT NULL DEFAULT '',
             vat_text TEXT NOT NULL DEFAULT '',
             payment_text TEXT NOT NULL DEFAULT '',
+            footnote_text TEXT NOT NULL DEFAULT '',
             iban TEXT NOT NULL DEFAULT '',
             bic TEXT NOT NULL DEFAULT '',
             last_invoice_number INTEGER NOT NULL DEFAULT 0,
@@ -102,6 +117,9 @@ class DatabaseHelper {
             sender_snapshot TEXT NOT NULL DEFAULT '',
             footer_snapshot TEXT NOT NULL DEFAULT '',
             teilbetrag_label TEXT NOT NULL DEFAULT 'Betrag',
+            vat_text_snapshot TEXT NOT NULL DEFAULT '',
+            payment_text_snapshot TEXT NOT NULL DEFAULT '',
+            footnote_text_snapshot TEXT NOT NULL DEFAULT '',
             FOREIGN KEY (workplace_id) REFERENCES workplaces(id) ON DELETE CASCADE
           )
         ''');

@@ -174,20 +174,27 @@ class _EmployerSummaryCardState extends ConsumerState<_EmployerSummaryCard> {
     return Card(
       clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
-        title: Text(summary.workplace.name),
-        subtitle: Row(
+        title: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            Expanded(child: Text(AppFormatters.hours(summary.hours))),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(summary.workplace.name),
+                  const SizedBox(height: 2),
+                  Text(
+                    AppFormatters.hours(summary.hours),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                  ),
+                ],
+              ),
+            ),
             Text(
               AppFormatters.money(summary.earned),
               style: Theme.of(context).textTheme.titleMedium,
-            ),
-            IconButton(
-              icon: const Icon(Icons.work_outline, size: 20),
-              tooltip: 'Als aktiven Arbeitgeber wählen',
-              onPressed: () => ref
-                  .read(appStateProvider.notifier)
-                  .selectWorkplace(summary.workplace.id),
             ),
           ],
         ),
@@ -197,6 +204,7 @@ class _EmployerSummaryCardState extends ConsumerState<_EmployerSummaryCard> {
           }
         },
         children: [
+          const Divider(height: 1),
           if (_loadingEntries)
             const Padding(
               padding: EdgeInsets.all(16),

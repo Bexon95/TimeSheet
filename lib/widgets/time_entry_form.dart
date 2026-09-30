@@ -197,6 +197,33 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
     if (mounted) Navigator.pop(context, true);
   }
 
+  Future<void> _delete() async {
+    final entry = widget.entry;
+    if (entry == null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Eintrag löschen?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Abbrechen'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Löschen'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await ref.read(databaseProvider).deleteEntry(entry.id);
+    bumpRefresh(ref);
+    if (mounted) Navigator.pop(context, true);
+  }
+
   Future<void> _addProject() async {
     final existing = await ref
         .read(databaseProvider)
@@ -362,6 +389,17 @@ class _TimeEntryFormSheetState extends ConsumerState<TimeEntryFormSheet> {
               onPressed: _save,
               child: const Text('Speichern'),
             ),
+            if (widget.entry != null) ...[
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _delete,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Eintrag löschen'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.error,
+                ),
+              ),
+            ],
           ],
         ),
       ),

@@ -195,6 +195,7 @@ class InvoiceSettings {
     this.senderSsn = '',
     this.vatText = 'In diesem Betrag ist kein UST enthalten.',
     this.paymentText = 'Bitte um Überweisung auf mein Konto',
+    this.footnoteText = '',
     this.iban = '',
     this.bic = '',
     this.lastInvoiceNumber = 0,
@@ -206,6 +207,7 @@ class InvoiceSettings {
   final String senderSsn;
   final String vatText;
   final String paymentText;
+  final String footnoteText;
   final String iban;
   final String bic;
   final int lastInvoiceNumber;
@@ -217,6 +219,7 @@ class InvoiceSettings {
     String? senderSsn,
     String? vatText,
     String? paymentText,
+    String? footnoteText,
     String? iban,
     String? bic,
     int? lastInvoiceNumber,
@@ -228,6 +231,7 @@ class InvoiceSettings {
       senderSsn: senderSsn ?? this.senderSsn,
       vatText: vatText ?? this.vatText,
       paymentText: paymentText ?? this.paymentText,
+      footnoteText: footnoteText ?? this.footnoteText,
       iban: iban ?? this.iban,
       bic: bic ?? this.bic,
       lastInvoiceNumber: lastInvoiceNumber ?? this.lastInvoiceNumber,
@@ -241,6 +245,7 @@ class InvoiceSettings {
         'sender_ssn': senderSsn,
         'vat_text': vatText,
         'payment_text': paymentText,
+        'footnote_text': footnoteText,
         'iban': iban,
         'bic': bic,
         'last_invoice_number': lastInvoiceNumber,
@@ -255,6 +260,7 @@ class InvoiceSettings {
             'In diesem Betrag ist kein UST enthalten.',
         paymentText: map['payment_text'] as String? ??
             'Bitte um Überweisung auf mein Konto',
+        footnoteText: map['footnote_text'] as String? ?? '',
         iban: map['iban'] as String? ?? '',
         bic: map['bic'] as String? ?? '',
         lastInvoiceNumber: map['last_invoice_number'] as int? ?? 0,
@@ -279,6 +285,9 @@ class SavedInvoice {
     required this.senderSnapshot,
     required this.footerSnapshot,
     this.teilbetragLabel = 'Betrag',
+    this.vatTextSnapshot = '',
+    this.paymentTextSnapshot = '',
+    this.footnoteTextSnapshot = '',
   });
 
   final int id;
@@ -296,6 +305,9 @@ class SavedInvoice {
   final String senderSnapshot;
   final String footerSnapshot;
   final String teilbetragLabel;
+  final String vatTextSnapshot;
+  final String paymentTextSnapshot;
+  final String footnoteTextSnapshot;
 
   SavedInvoice copyWith({
     int? id,
@@ -313,6 +325,9 @@ class SavedInvoice {
     String? senderSnapshot,
     String? footerSnapshot,
     String? teilbetragLabel,
+    String? vatTextSnapshot,
+    String? paymentTextSnapshot,
+    String? footnoteTextSnapshot,
   }) {
     return SavedInvoice(
       id: id ?? this.id,
@@ -330,6 +345,9 @@ class SavedInvoice {
       senderSnapshot: senderSnapshot ?? this.senderSnapshot,
       footerSnapshot: footerSnapshot ?? this.footerSnapshot,
       teilbetragLabel: teilbetragLabel ?? this.teilbetragLabel,
+      vatTextSnapshot: vatTextSnapshot ?? this.vatTextSnapshot,
+      paymentTextSnapshot: paymentTextSnapshot ?? this.paymentTextSnapshot,
+      footnoteTextSnapshot: footnoteTextSnapshot ?? this.footnoteTextSnapshot,
     );
   }
 
@@ -349,6 +367,9 @@ class SavedInvoice {
         'sender_snapshot': senderSnapshot,
         'footer_snapshot': footerSnapshot,
         'teilbetrag_label': teilbetragLabel,
+        'vat_text_snapshot': vatTextSnapshot,
+        'payment_text_snapshot': paymentTextSnapshot,
+        'footnote_text_snapshot': footnoteTextSnapshot,
       };
 
   factory SavedInvoice.fromMap(Map<String, Object?> map) => SavedInvoice(
@@ -370,6 +391,9 @@ class SavedInvoice {
         senderSnapshot: map['sender_snapshot'] as String? ?? '',
         footerSnapshot: map['footer_snapshot'] as String? ?? '',
         teilbetragLabel: map['teilbetrag_label'] as String? ?? 'Betrag',
+        vatTextSnapshot: map['vat_text_snapshot'] as String? ?? '',
+        paymentTextSnapshot: map['payment_text_snapshot'] as String? ?? '',
+        footnoteTextSnapshot: map['footnote_text_snapshot'] as String? ?? '',
       );
 }
 
