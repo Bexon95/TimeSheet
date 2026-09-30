@@ -6,7 +6,9 @@ import '../../database/database_helper.dart';
 import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
+import '../../utils/iso_week.dart';
 import '../../utils/project_colors.dart';
+import '../../widgets/week_entry_row.dart';
 import '../../widgets/time_entry_form.dart';
 import 'calendar_view_mode.dart';
 import 'week_list_view.dart';
@@ -118,6 +120,13 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
 
     final mode = ref.watch(calendarViewModeProvider);
 
+    ref.listen(calendarViewModeProvider, (previous, next) {
+      if (next == CalendarViewMode.week && previous != CalendarViewMode.week) {
+        final day = ref.read(calendarSelectedDayProvider);
+        setState(() => _focusedDay = day);
+      }
+    });
+
     return switch (mode) {
       CalendarViewMode.month => _MonthView(
           focusedDay: _focusedDay,
@@ -157,6 +166,16 @@ class _CalendarScreenState extends ConsumerState<CalendarScreen> {
               _focusedDay = day;
             });
             _showDaySheet(context, workplace, day);
+          },
+          onWeekChanged: (monday) {
+            setCalendarSelectedDay(ref, monday);
+            setState(() => _focusedDay = monday);
+          },
+          onJumpToThisWeek: () {
+            final today = _dateOnly(DateTime.now());
+            final monday = IsoWeek.mondayOf(today);
+            setCalendarSelectedDay(ref, monday);
+            setState(() => _focusedDay = monday);
           },
         ),
       CalendarViewMode.day => _DayView(
@@ -658,19 +677,28 @@ class _WeekView extends ConsumerStatefulWidget {
     required this.workplace,
     required this.focusedDay,
     required this.onDaySelected,
+    required this.onWeekChanged,
+    required this.onJumpToThisWeek,
   });
 
   final Workplace workplace;
   final DateTime focusedDay;
   final ValueChanged<DateTime> onDaySelected;
+  final ValueChanged<DateTime> onWeekChanged;
+  final VoidCallback onJumpToThisWeek;
 
   @override
   ConsumerState<_WeekView> createState() => _WeekViewState();
 }
 
 class _WeekViewState extends ConsumerState<_WeekView> {
-  Map<DateTime, _DayMarkerInfo> _weekData = {};
+  List<TimeEntry> _entries = [];
+  Map<int, Project> _projects = {};
   bool _loading = true;
+  double _weekHours = 0;
+  double _weekEarned = 0;
+
+  DateTime get _monday => IsoWeek.mondayOf(widget.focusedDay);
 
   @override
   void initState() {
@@ -687,12 +715,9 @@ class _WeekViewState extends ConsumerState<_WeekView> {
     }
   }
 
-  DateTime _dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-
   Future<void> _loadWeek() async {
     setState(() => _loading = true);
-    final start = widget.focusedDay
-        .subtract(Duration(days: widget.focusedDay.weekday - 1));
+    final start = _monday;
     final end = start.add(const Duration(days: 6));
     final entries = await DatabaseHelper.instance.getEntries(
       workplaceId: widget.workplace.id,
@@ -701,126 +726,185 @@ class _WeekViewState extends ConsumerState<_WeekView> {
     );
     final projects = await DatabaseHelper.instance
         .getProjectsForWorkplace(widget.workplace.id);
-    final projectColors = {
-      for (final p in projects) p.id: projectColor(p.colorValue),
-    };
-
-    final data = <DateTime, _DayMarkerInfo>{};
+    var hours = 0.0;
+    var earned = 0.0;
     for (final entry in entries) {
-      final day = _dateOnly(entry.date);
-      final info = data.putIfAbsent(day, () => _DayMarkerInfo());
-      info.earned += entry.earned;
-      info.hasEntries = true;
-      final color = entry.projectId != null
-          ? (projectColors[entry.projectId] ?? projectColorPalette.first)
-          : projectColorPalette.first;
-      if (entry.projectId != null) {
-        info.colors.add(color);
-      }
-      info.entryPreviews.add(
-        _DayEntryPreview(
-          startTime: entry.startTime,
-          endTime: entry.endTime,
-          color: color,
-        ),
-      );
+      hours += entry.hours;
+      earned += entry.earned;
     }
-    for (final info in data.values) {
-      info.entryPreviews.sort(
-        (a, b) => a.startTime.compareTo(b.startTime),
-      );
-    }
-
     if (mounted) {
       setState(() {
-        _weekData = data;
+        _entries = entries;
+        _projects = {for (final p in projects) p.id: p};
+        _weekHours = hours;
+        _weekEarned = earned;
         _loading = false;
       });
     }
+  }
+
+  void _shiftWeek(int deltaWeeks) {
+    widget.onWeekChanged(_monday.add(Duration(days: 7 * deltaWeeks)));
   }
 
   @override
   Widget build(BuildContext context) {
     ref.listen(refreshTriggerProvider, (_, __) => _loadWeek());
 
-    final start = widget.focusedDay
-        .subtract(Duration(days: widget.focusedDay.weekday - 1));
-    final days = List.generate(7, (i) => start.add(Duration(days: i)));
+    final theme = Theme.of(context);
+    final weekendColor = Colors.amber.shade400;
+    final days = List.generate(
+      7,
+      (i) => _monday.add(Duration(days: i)),
+    );
+    final todayMonday = IsoWeek.mondayOf(DateTime.now());
+    final isCurrentWeek = todayMonday.year == _monday.year &&
+        todayMonday.month == _monday.month &&
+        todayMonday.day == _monday.day;
 
-    if (_loading) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: days.length,
-      itemBuilder: (context, index) {
-        final day = days[index];
-        final info = _weekData[_dateOnly(day)];
-        final hasEntries = info?.hasEntries ?? false;
-        final previews = info?.entryPreviews ?? const <_DayEntryPreview>[];
-
-        return Card(
-          child: ListTile(
-            leading: hasEntries
-                ? Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (info!.colors.isNotEmpty)
-                        ...info.colors.take(3).map(
-                              (c) => Padding(
-                                padding: const EdgeInsets.only(right: 4),
-                                child: CircleAvatar(
-                                  radius: 5,
-                                  backgroundColor: c,
-                                ),
-                              ),
-                            )
-                      else
-                        CircleAvatar(
-                          radius: 5,
-                          backgroundColor:
-                              Theme.of(context).colorScheme.primary,
-                        ),
-                    ],
-                  )
-                : const SizedBox(width: 24),
-            isThreeLine: previews.length > 1,
-            title: Text(AppFormatters.date(day)),
-            subtitle: hasEntries
-                ? Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (final preview in previews)
-                        Text(
-                          AppFormatters.weekViewEntryLine(
-                            preview.startTime,
-                            preview.endTime,
-                          ),
-                        ),
-                    ],
-                  )
-                : const Text('Keine Einträge'),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
+    return GestureDetector(
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -200) {
+          _shiftWeek(1);
+        } else if (velocity > 200) {
+          _shiftWeek(-1);
+        }
+      },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+            child: Row(
               children: [
-                if (hasEntries && info != null)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Text(
-                      AppFormatters.money(info.earned),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                    ),
+                IconButton(
+                  icon: const Icon(Icons.chevron_left),
+                  onPressed: () => _shiftWeek(-1),
+                ),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Text(
+                        AppFormatters.weekRangeCompact(_monday),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                      Text(
+                        'Woche ${IsoWeek.weekNumber(_monday)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                    ],
                   ),
-                const Icon(Icons.chevron_right),
+                ),
+                if (!isCurrentWeek)
+                  TextButton(
+                    onPressed: widget.onJumpToThisWeek,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: const Text('Diese Woche'),
+                  )
+                else
+                  const SizedBox(width: 48),
+                IconButton(
+                  icon: const Icon(Icons.chevron_right),
+                  onPressed: () => _shiftWeek(1),
+                ),
               ],
             ),
-            onTap: () => widget.onDaySelected(day),
           ),
-        );
-      },
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                for (final day in days)
+                  Expanded(
+                    child: InkWell(
+                      onTap: () => widget.onDaySelected(day),
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Column(
+                          children: [
+                            Text(
+                              '${day.day}',
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: day.weekday >= DateTime.saturday
+                                    ? weekendColor
+                                    : null,
+                              ),
+                            ),
+                            Text(
+                              AppFormatters.weekdayShort(day),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: day.weekday >= DateTime.saturday
+                                    ? weekendColor
+                                    : theme.colorScheme.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    AppFormatters.workedDurationGerman(_weekHours),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ),
+                Text(
+                  AppFormatters.compactEarned(_weekEarned),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator())
+                : _entries.isEmpty
+                    ? const Center(child: Text('Keine Einträge in dieser Woche.'))
+                    : ListView.builder(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        itemCount: _entries.length,
+                        itemBuilder: (context, index) {
+                          final entry = _entries[index];
+                          return WeekEntryRow(
+                            entry: entry,
+                            workplace: widget.workplace,
+                            project: entry.projectId != null
+                                ? _projects[entry.projectId]
+                                : null,
+                            onChanged: () {
+                              bumpRefresh(ref);
+                              _loadWeek();
+                            },
+                          );
+                        },
+                      ),
+          ),
+        ],
+      ),
     );
   }
 }

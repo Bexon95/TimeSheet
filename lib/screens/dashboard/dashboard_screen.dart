@@ -5,21 +5,49 @@ import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
 import '../../widgets/date_range_selector.dart';
+import '../../widgets/week_entry_row.dart';
 
-class DashboardScreen extends ConsumerWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends ConsumerState<DashboardScreen> {
+  var _diskCacheLoaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _hydrateDiskCache();
+  }
+
+  Future<void> _hydrateDiskCache() async {
+    final cached = await loadDashboardSummariesCacheFromPrefs();
+    if (!mounted) return;
+    if (cached != null &&
+        ref.read(workplaceSummariesCacheProvider) == null) {
+      ref.read(workplaceSummariesCacheProvider.notifier).state = cached;
+    }
+    if (mounted) setState(() => _diskCacheLoaded = true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final range = ref.watch(appStateProvider).dateRange;
     final summariesAsync = ref.watch(workplaceSummariesProvider(range));
 
     ref.listen(
       workplaceSummariesProvider(range),
       (_, next) {
-        next.whenData((summaries) {
-          ref.read(workplaceSummariesCacheProvider.notifier).state =
-              CachedWorkplaceSummaries(range: range, summaries: summaries);
+        next.whenData((summaries) async {
+          final cache = CachedWorkplaceSummaries(
+            range: range,
+            summaries: summaries,
+          );
+          ref.read(workplaceSummariesCacheProvider.notifier).state = cache;
+          await persistDashboardSummariesCache(cache);
         });
       },
     );
@@ -27,6 +55,10 @@ class DashboardScreen extends ConsumerWidget {
     final cache = ref.watch(workplaceSummariesCacheProvider);
     final cachedSummaries =
         cache != null && cache.range == range ? cache.summaries : null;
+
+    if (!_diskCacheLoaded && cachedSummaries == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return summariesAsync.when(
       loading: () {
@@ -92,21 +124,109 @@ class _DashboardBody extends ConsumerWidget {
           )
         else
           ...summaries.map(
-            (summary) => Card(
-              child: ListTile(
-                title: Text(summary.workplace.name),
-                subtitle: Text(AppFormatters.hours(summary.hours)),
-                trailing: Text(
-                  AppFormatters.money(summary.earned),
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                onTap: () => ref
-                    .read(appStateProvider.notifier)
-                    .selectWorkplace(summary.workplace.id),
-              ),
-            ),
+            (summary) => _EmployerSummaryCard(summary: summary),
           ),
       ],
+    );
+  }
+}
+
+class _EmployerSummaryCard extends ConsumerStatefulWidget {
+  const _EmployerSummaryCard({required this.summary});
+
+  final WorkplaceSummary summary;
+
+  @override
+  ConsumerState<_EmployerSummaryCard> createState() =>
+      _EmployerSummaryCardState();
+}
+
+class _EmployerSummaryCardState extends ConsumerState<_EmployerSummaryCard> {
+  List<TimeEntry>? _entries;
+  Map<int, Project>? _projects;
+  bool _loadingEntries = false;
+
+  Future<void> _loadEntries() async {
+    if (_loadingEntries) return;
+    setState(() => _loadingEntries = true);
+    final range = ref.read(appStateProvider).dateRange;
+    final db = ref.read(databaseProvider);
+    final entries = await db.getEntries(
+      workplaceId: widget.summary.workplace.id,
+      start: range.start,
+      end: range.end,
+    );
+    final projects =
+        await db.getProjectsForWorkplace(widget.summary.workplace.id);
+    if (mounted) {
+      setState(() {
+        _entries = entries;
+        _projects = {for (final p in projects) p.id: p};
+        _loadingEntries = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final summary = widget.summary;
+
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: ExpansionTile(
+        title: Text(summary.workplace.name),
+        subtitle: Row(
+          children: [
+            Expanded(child: Text(AppFormatters.hours(summary.hours))),
+            Text(
+              AppFormatters.money(summary.earned),
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
+            IconButton(
+              icon: const Icon(Icons.work_outline, size: 20),
+              tooltip: 'Als aktiven Arbeitgeber wählen',
+              onPressed: () => ref
+                  .read(appStateProvider.notifier)
+                  .selectWorkplace(summary.workplace.id),
+            ),
+          ],
+        ),
+        onExpansionChanged: (expanded) {
+          if (expanded && _entries == null) {
+            _loadEntries();
+          }
+        },
+        children: [
+          if (_loadingEntries)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else if (_entries == null || _entries!.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('Keine Einträge in diesem Zeitraum.'),
+            )
+          else
+            ..._entries!.map(
+              (entry) {
+                final projectId = entry.projectId;
+                final projects = _projects;
+                return WeekEntryRow(
+                  entry: entry,
+                  workplace: summary.workplace,
+                  project: projectId != null && projects != null
+                      ? projects[projectId]
+                      : null,
+                  onChanged: () {
+                    bumpRefresh(ref);
+                    _loadEntries();
+                  },
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 }

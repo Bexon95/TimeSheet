@@ -228,7 +228,13 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       footerSnapshot: _footerSnapshot(settings),
       teilbetragLabel: draft.teilbetragLabel,
     );
-    await db.insertSavedInvoice(saved);
+    final invoiceId = await db.insertSavedInvoice(saved);
+    await db.markEntriesInvoiced(
+      workplaceId: saved.workplaceId,
+      start: saved.dateRangeStart,
+      end: saved.dateRangeEnd,
+      invoiceId: invoiceId,
+    );
     await db.incrementInvoiceCounter(saved.invoiceNumber);
 
     bumpRefresh(ref);
@@ -311,78 +317,164 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
             const DateRangeSelector(),
             const SizedBox(height: 12),
           ] else
-            Text(
-              'Zeitraum: ${AppFormatters.dateRange(widget.existingInvoice!.dateRangeStart, widget.existingInvoice!.dateRangeEnd)}',
-            ),
-          InkWell(
-            onTap: _pickInvoiceDate,
-            borderRadius: BorderRadius.circular(4),
-            child: InputDecorator(
-              decoration: const InputDecoration(
-                labelText: 'Rechnungsdatum',
-                border: OutlineInputBorder(),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(
+                  'Zeitraum: ${AppFormatters.dateRange(widget.existingInvoice!.dateRangeStart, widget.existingInvoice!.dateRangeEnd)}',
+                ),
               ),
-              child: Text(AppFormatters.date(_invoiceDate)),
+            ),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Rechnung',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  InkWell(
+                    onTap: _pickInvoiceDate,
+                    borderRadius: BorderRadius.circular(4),
+                    child: InputDecorator(
+                      decoration: const InputDecoration(
+                        labelText: 'Rechnungsdatum',
+                        border: OutlineInputBorder(),
+                      ),
+                      child: Text(AppFormatters.date(_invoiceDate)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _invoiceNumberController,
+                    decoration: const InputDecoration(
+                      labelText: 'Rechnungsnummer (x/YY)',
+                    ),
+                    readOnly: widget.isEditing,
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 12),
-          TextField(
-            controller: _invoiceNumberController,
-            decoration: const InputDecoration(labelText: 'Rechnungsnummer (x/YY)'),
-            readOnly: widget.isEditing,
-          ),
-          TextField(
-            controller: _recipientNameController,
-            decoration: const InputDecoration(labelText: 'Empfänger'),
-          ),
-          TextField(
-            controller: _recipientAddressController,
-            decoration: const InputDecoration(labelText: 'Empfängeradresse'),
-            maxLines: 3,
-          ),
-          TextField(
-            controller: _titleController,
-            decoration: const InputDecoration(labelText: 'Titel'),
-          ),
-          const SizedBox(height: 8),
-          Text('Leistungsbeschreibung', style: Theme.of(context).textTheme.titleSmall),
-          ...List.generate(_bulletControllers.length, (index) {
-            return Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 16, right: 8),
-                  child: Text(
-                    '-',
-                    style: Theme.of(context).textTheme.titleMedium,
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Empfänger',
+                    style: Theme.of(context).textTheme.titleSmall,
                   ),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _bulletControllers[index],
-                    decoration: InputDecoration(labelText: 'Punkt ${index + 1}'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _recipientNameController,
+                    decoration: const InputDecoration(labelText: 'Empfänger'),
                   ),
-                ),
-                IconButton(
-                  onPressed: () => _removeBullet(index),
-                  icon: const Icon(Icons.remove_circle_outline),
-                ),
-              ],
-            );
-          }),
-          TextButton.icon(
-            onPressed: _addBullet,
-            icon: const Icon(Icons.add),
-            label: const Text('Punkt hinzufügen'),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _recipientAddressController,
+                    decoration: const InputDecoration(
+                      labelText: 'Empfängeradresse',
+                    ),
+                    minLines: 1,
+                    maxLines: null,
+                    keyboardType: TextInputType.multiline,
+                  ),
+                ],
+              ),
+            ),
           ),
-          TextField(
-            controller: _teilbetragController,
-            decoration: const InputDecoration(labelText: 'Betrag-Bezeichnung'),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Leistung',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _titleController,
+                    decoration: const InputDecoration(labelText: 'Titel'),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Leistungsbeschreibung',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 8),
+                  ...List.generate(_bulletControllers.length, (index) {
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16, right: 8),
+                          child: Text(
+                            '-',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                        ),
+                        Expanded(
+                          child: TextField(
+                            controller: _bulletControllers[index],
+                            decoration:
+                                InputDecoration(labelText: 'Punkt ${index + 1}'),
+                            minLines: 1,
+                            maxLines: null,
+                            keyboardType: TextInputType.multiline,
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: () => _removeBullet(index),
+                          icon: const Icon(Icons.remove_circle_outline),
+                        ),
+                      ],
+                    );
+                  }),
+                  TextButton.icon(
+                    onPressed: _addBullet,
+                    icon: const Icon(Icons.add),
+                    label: const Text('Punkt hinzufügen'),
+                  ),
+                ],
+              ),
+            ),
           ),
-          TextField(
-            controller: _amountController,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            decoration: const InputDecoration(labelText: 'Betrag (EUR)'),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Betrag',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: _teilbetragController,
+                    decoration:
+                        const InputDecoration(labelText: 'Betrag-Bezeichnung'),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _amountController,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(labelText: 'Betrag (EUR)'),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: 16),
           OutlinedButton(

@@ -25,6 +25,15 @@ class HomeShell extends ConsumerStatefulWidget {
 class _HomeShellState extends ConsumerState<HomeShell> {
   int _index = 0;
   final _quickEntryService = QuickEntryService();
+  final _visitedTabs = <bool>[true, false, false, false];
+
+  void _selectTab(int navIndex) {
+    setState(() {
+      _index = navIndex;
+      final bodyIndex = navIndex > 2 ? navIndex - 1 : navIndex;
+      _visitedTabs[bodyIndex] = true;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,11 +60,17 @@ class _HomeShellState extends ConsumerState<HomeShell> {
           Expanded(
             child: IndexedStack(
               index: bodyIndex,
-              children: const [
-                DashboardScreen(),
-                CalendarScreen(),
-                StatisticsScreen(),
-                InvoiceScreen(),
+              children: [
+                const DashboardScreen(),
+                _visitedTabs[1]
+                    ? const CalendarScreen()
+                    : const SizedBox.shrink(),
+                _visitedTabs[2]
+                    ? const StatisticsScreen()
+                    : const SizedBox.shrink(),
+                _visitedTabs[3]
+                    ? const InvoiceScreen()
+                    : const SizedBox.shrink(),
               ],
             ),
           ),
@@ -76,14 +91,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   selectedIcon: Icons.dashboard,
                   label: 'Dashboard',
                   selected: _index == 0,
-                  onTap: () => setState(() => _index = 0),
+                  onTap: () => _selectTab(0),
                 ),
                 _NavItem(
                   icon: Icons.calendar_month_outlined,
                   selectedIcon: Icons.calendar_month,
                   label: 'Kalender',
                   selected: _index == 1,
-                  onTap: () => setState(() => _index = 1),
+                  onTap: () => _selectTab(1),
                 ),
                 _AddNavButton(onPressed: _showPlusMenu),
                 _NavItem(
@@ -91,14 +106,14 @@ class _HomeShellState extends ConsumerState<HomeShell> {
                   selectedIcon: Icons.bar_chart,
                   label: 'Statistik',
                   selected: _index == 3,
-                  onTap: () => setState(() => _index = 3),
+                  onTap: () => _selectTab(3),
                 ),
                 _NavItem(
                   icon: Icons.receipt_long_outlined,
                   selectedIcon: Icons.receipt_long,
                   label: 'Rechnung',
                   selected: _index == 4,
-                  onTap: () => setState(() => _index = 4),
+                  onTap: () => _selectTab(4),
                 ),
               ],
             ),

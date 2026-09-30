@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -420,6 +422,67 @@ class CachedWorkplaceSummaries {
 final workplaceSummariesCacheProvider =
     StateProvider<CachedWorkplaceSummaries?>((ref) => null);
 
+const _dashboardCacheKey = 'dashboard_summaries_cache';
+
+Future<CachedWorkplaceSummaries?> loadDashboardSummariesCacheFromPrefs() async {
+  final prefs = await SharedPreferences.getInstance();
+  final raw = prefs.getString(_dashboardCacheKey);
+  if (raw == null) return null;
+  try {
+    final json = jsonDecode(raw) as Map<String, dynamic>;
+    final start = parseDateOnly(json['rangeStart'] as String);
+    final end = parseDateOnly(json['rangeEnd'] as String);
+    final summariesJson = json['summaries'] as List<dynamic>;
+    final summaries = summariesJson.map((item) {
+      final map = item as Map<String, dynamic>;
+      return WorkplaceSummary(
+        workplace: Workplace.fromMap({
+          'id': map['workplaceId'],
+          'name': map['name'],
+          'default_hourly_rate': map['defaultHourlyRate'],
+          'recipient_name': map['recipientName'] ?? '',
+          'recipient_address': map['recipientAddress'] ?? '',
+          'sort_order': map['sortOrder'] ?? 0,
+        }),
+        hours: (map['hours'] as num).toDouble(),
+        earned: (map['earned'] as num).toDouble(),
+      );
+    }).toList();
+    return CachedWorkplaceSummaries(
+      range: DateRange(start: start, end: end),
+      summaries: summaries,
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+Future<void> persistDashboardSummariesCache(CachedWorkplaceSummaries cache) async {
+  final prefs = await SharedPreferences.getInstance();
+  final summariesJson = cache.summaries
+      .map(
+        (s) => {
+          'workplaceId': s.workplace.id,
+          'name': s.workplace.name,
+          'defaultHourlyRate': s.workplace.defaultHourlyRate,
+          'recipientName': s.workplace.recipientName,
+          'recipientAddress': s.workplace.recipientAddress,
+          'sortOrder': s.workplace.sortOrder,
+          'hours': s.hours,
+          'earned': s.earned,
+        },
+      )
+      .toList();
+  await prefs.setString(
+    _dashboardCacheKey,
+    jsonEncode({
+      'rangeStart': cache.range.start.toIso8601String().split('T').first,
+      'rangeEnd': cache.range.end.toIso8601String().split('T').first,
+      'summaries': summariesJson,
+    }),
+  );
+}
+
 final workplaceSummariesProvider =
     FutureProvider.family<List<WorkplaceSummary>, DateRange>((ref, range) async {
   ref.keepAlive();
@@ -459,6 +522,20 @@ class EntriesQuery {
   @override
   int get hashCode => Object.hash(workplaceId, start, end);
 }
+
+/// Unbilled entry span for the selected workplace, if any.
+final unbilledEntrySpanProvider = FutureProvider<DateRange?>((ref) async {
+  ref.watch(refreshTriggerProvider);
+  final workplaceId = ref.watch(appStateProvider).selectedWorkplaceId;
+  if (workplaceId == null) return null;
+  final span =
+      await ref.watch(databaseProvider).getUnbilledDateSpan(workplaceId);
+  if (span == null) return null;
+  return DateRange(
+    start: DateTime(span.start.year, span.start.month, span.start.day),
+    end: DateTime(span.end.year, span.end.month, span.end.day),
+  );
+});
 
 final savedInvoicesProvider =
     FutureProvider.family<List<SavedInvoice>, int>((ref, workplaceId) async {

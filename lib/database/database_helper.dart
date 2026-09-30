@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
@@ -19,8 +20,22 @@ class DatabaseHelper {
     final path = join(dbPath, 'timesheet.db');
     return openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: (db, version) async {
+        await _createSchema(db);
+      },
+      onUpgrade: (db, oldVersion, newVersion) async {
+        if (oldVersion < 2) {
+          await db.execute(
+            'ALTER TABLE time_entries ADD COLUMN invoiced_invoice_id INTEGER',
+          );
+          await _backfillInvoicedFromSavedInvoices(db);
+        }
+      },
+    );
+  }
+
+  Future<void> _createSchema(Database db) async {
         await db.execute('''
           CREATE TABLE workplaces (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,6 +66,7 @@ class DatabaseHelper {
             hourly_rate REAL NOT NULL,
             notes TEXT NOT NULL DEFAULT '',
             source TEXT NOT NULL DEFAULT 'manual',
+            invoiced_invoice_id INTEGER,
             FOREIGN KEY (workplace_id) REFERENCES workplaces(id) ON DELETE CASCADE,
             FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
           )
@@ -90,8 +106,34 @@ class DatabaseHelper {
           )
         ''');
         await db.insert('invoice_settings', {'id': 1});
-      },
+  }
+
+  Future<void> _backfillInvoicedFromSavedInvoices(Database db) async {
+    final invoices = await db.query(
+      'saved_invoices',
+      orderBy: 'created_at ASC, id ASC',
     );
+    for (final row in invoices) {
+      final id = row['id'] as int;
+      final workplaceId = row['workplace_id'] as int;
+      final start = row['date_range_start'] as String;
+      final end = row['date_range_end'] as String;
+      await db.update(
+        'time_entries',
+        {'invoiced_invoice_id': id},
+        where:
+            'workplace_id = ? AND date >= ? AND date <= ? AND invoiced_invoice_id IS NULL',
+        whereArgs: [workplaceId, start, end],
+      );
+    }
+  }
+
+  /// Opens an in-memory database for tests (sqflite_common_ffi required).
+  @visibleForTesting
+  static Future<DatabaseHelper> openForTesting(Future<Database> Function() opener) async {
+    final helper = DatabaseHelper._();
+    helper._db = await opener();
+    return helper;
   }
 
   Future<List<Workplace>> getWorkplaces() async {
@@ -318,6 +360,54 @@ class DatabaseHelper {
     return db.insert('saved_invoices', map);
   }
 
+  Future<void> markEntriesInvoiced({
+    required int workplaceId,
+    required DateTime start,
+    required DateTime end,
+    required int invoiceId,
+  }) async {
+    final db = await database;
+    await db.update(
+      'time_entries',
+      {'invoiced_invoice_id': invoiceId},
+      where:
+          'workplace_id = ? AND date >= ? AND date <= ? AND invoiced_invoice_id IS NULL',
+      whereArgs: [workplaceId, _dateKey(start), _dateKey(end)],
+    );
+  }
+
+  Future<void> clearInvoicedForInvoice(int invoiceId) async {
+    final db = await database;
+    await db.update(
+      'time_entries',
+      {'invoiced_invoice_id': null},
+      where: 'invoiced_invoice_id = ?',
+      whereArgs: [invoiceId],
+    );
+  }
+
+  Future<({DateTime start, DateTime end})?> getUnbilledDateSpan(
+    int workplaceId,
+  ) async {
+    final db = await database;
+    final rows = await db.rawQuery(
+      '''
+      SELECT MIN(date) AS min_date, MAX(date) AS max_date
+      FROM time_entries
+      WHERE workplace_id = ? AND invoiced_invoice_id IS NULL
+      ''',
+      [workplaceId],
+    );
+    if (rows.isEmpty) return null;
+    final minRaw = rows.first['min_date'] as String?;
+    final maxRaw = rows.first['max_date'] as String?;
+    if (minRaw == null || maxRaw == null) return null;
+    return (
+      start: DateTime.parse(minRaw),
+      end: DateTime.parse(maxRaw),
+    );
+  }
+
   Future<List<SavedInvoice>> getSavedInvoices(int workplaceId) async {
     final db = await database;
     final rows = await db.query(
@@ -349,6 +439,7 @@ class DatabaseHelper {
 
   Future<void> deleteSavedInvoice(int id) async {
     final db = await database;
+    await clearInvoicedForInvoice(id);
     await db.delete('saved_invoices', where: 'id = ?', whereArgs: [id]);
   }
 

@@ -1,15 +1,25 @@
 import '../providers/providers.dart';
 import 'date_only.dart';
 
-enum DateRangePreset { week, twoWeeks, month, all, custom }
+enum DateRangePreset { week, twoWeeks, month, all, custom, unbilled }
 
 DateRangePreset detectDateRangePreset(
   DateRange range, {
   DateRange? fullEntrySpan,
+  DateRange? unbilledSpan,
 }) {
   final today = dateOnly(DateTime.now());
   final end = dateOnly(range.end);
   final start = dateOnly(range.start);
+
+  if (unbilledSpan != null) {
+    final uStart = dateOnly(unbilledSpan.start);
+    final uEnd = dateOnly(unbilledSpan.end);
+    if (sameCalendarDay(start, uStart) &&
+        sameCalendarDay(end, uEnd)) {
+      return DateRangePreset.unbilled;
+    }
+  }
 
   if (fullEntrySpan != null) {
     final spanStart = dateOnly(fullEntrySpan.start);

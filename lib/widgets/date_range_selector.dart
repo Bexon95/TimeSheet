@@ -6,7 +6,7 @@ import '../services/formatters.dart';
 import '../utils/date_range_preset.dart';
 import 'workplace_filter_chips.dart';
 
-class DateRangeSelector extends ConsumerWidget {
+class DateRangeSelector extends ConsumerStatefulWidget {
   const DateRangeSelector({
     super.key,
     this.showWorkplaceFilter = false,
@@ -21,17 +21,40 @@ class DateRangeSelector extends ConsumerWidget {
   final ValueChanged<int?>? onFilterWorkplaceChanged;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DateRangeSelector> createState() => _DateRangeSelectorState();
+}
+
+class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
+  @override
+  Widget build(BuildContext context) {
     final appState = ref.watch(appStateProvider);
     final range = appState.dateRange;
     final workplaces = appState.workplaces;
     final entrySpan = ref.watch(entryDateSpanProvider).valueOrNull;
+    final unbilledSpan = ref.watch(unbilledEntrySpanProvider).valueOrNull;
     final activePreset = detectDateRangePreset(
       range,
       fullEntrySpan: entrySpan,
+      unbilledSpan: unbilledSpan,
     );
 
-    final rangeStyle = prominentRangeLabel
+    ref.listen(unbilledEntrySpanProvider, (previous, next) {
+      next.whenData((span) async {
+        if (span == null) return;
+        final current = ref.read(appStateProvider).dateRange;
+        final entrySpan = ref.read(entryDateSpanProvider).valueOrNull;
+        final preset = detectDateRangePreset(
+          current,
+          fullEntrySpan: entrySpan,
+          unbilledSpan: span,
+        );
+        if (preset != DateRangePreset.unbilled) return;
+        if (current == span) return;
+        await ref.read(appStateProvider.notifier).setCustomDateRange(span);
+      });
+    });
+
+    final rangeStyle = widget.prominentRangeLabel
         ? Theme.of(context).textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.w600,
             )
@@ -82,6 +105,14 @@ class DateRangeSelector extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
+                    label: const Text('Unabgerechnet'),
+                    showCheckmark: false,
+                    selected: activePreset == DateRangePreset.unbilled,
+                    onSelected: (_) =>
+                        _setUnbilled(context, ref, unbilledSpan),
+                  ),
+                  const SizedBox(width: 8),
+                  FilterChip(
                     label: const Text('Benutzerdefiniert'),
                     showCheckmark: false,
                     selected: activePreset == DateRangePreset.custom,
@@ -97,13 +128,13 @@ class DateRangeSelector extends ConsumerWidget {
                 ],
               ),
             ),
-            if (showWorkplaceFilter &&
-                onFilterWorkplaceChanged != null) ...[
+            if (widget.showWorkplaceFilter &&
+                widget.onFilterWorkplaceChanged != null) ...[
               const SizedBox(height: 8),
               WorkplaceFilterChips(
                 workplaces: workplaces,
-                selectedWorkplaceId: filterWorkplaceId,
-                onSelected: onFilterWorkplaceChanged!,
+                selectedWorkplaceId: widget.filterWorkplaceId,
+                onSelected: widget.onFilterWorkplaceChanged!,
               ),
             ],
           ],
@@ -129,6 +160,44 @@ class DateRangeSelector extends ConsumerWidget {
           DateRange(
             start: DateTime(now.year, now.month, 1),
             end: DateTime(now.year, now.month + 1, 0),
+          ),
+        );
+  }
+
+  Future<void> _setUnbilled(
+    BuildContext context,
+    WidgetRef ref,
+    DateRange? unbilledSpan,
+  ) async {
+    if (unbilledSpan != null) {
+      await ref.read(appStateProvider.notifier).setCustomDateRange(unbilledSpan);
+      return;
+    }
+    final workplaceId = ref.read(appStateProvider).selectedWorkplaceId;
+    if (workplaceId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Bitte zuerst einen Arbeitgeber auswählen.'),
+          ),
+        );
+      }
+      return;
+    }
+    final span =
+        await ref.read(databaseProvider).getUnbilledDateSpan(workplaceId);
+    if (span == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Keine unabgerechneten Einträge.')),
+        );
+      }
+      return;
+    }
+    await ref.read(appStateProvider.notifier).setCustomDateRange(
+          DateRange(
+            start: DateTime(span.start.year, span.start.month, span.start.day),
+            end: DateTime(span.end.year, span.end.month, span.end.day),
           ),
         );
   }
@@ -161,6 +230,7 @@ class DateRangeSelector extends ConsumerWidget {
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
       initialDateRange: DateTimeRange(start: initial.start, end: initial.end),
+      initialEntryMode: DatePickerEntryMode.calendar,
       locale: const Locale('de', 'DE'),
     );
     if (picked != null) {

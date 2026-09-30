@@ -108,6 +108,7 @@ class TimeEntry {
     required this.hourlyRate,
     this.notes = '',
     this.source = EntrySource.manual,
+    this.invoicedInvoiceId,
   });
 
   final int id;
@@ -119,6 +120,7 @@ class TimeEntry {
   final double hourlyRate;
   final String notes;
   final EntrySource source;
+  final int? invoicedInvoiceId;
 
   int get durationMinutes {
     final diff = endTime.difference(startTime).inMinutes;
@@ -140,6 +142,8 @@ class TimeEntry {
     double? hourlyRate,
     String? notes,
     EntrySource? source,
+    int? invoicedInvoiceId,
+    bool clearInvoicedInvoice = false,
   }) {
     return TimeEntry(
       id: id ?? this.id,
@@ -151,6 +155,9 @@ class TimeEntry {
       hourlyRate: hourlyRate ?? this.hourlyRate,
       notes: notes ?? this.notes,
       source: source ?? this.source,
+      invoicedInvoiceId: clearInvoicedInvoice
+          ? null
+          : (invoicedInvoiceId ?? this.invoicedInvoiceId),
     );
   }
 
@@ -164,6 +171,7 @@ class TimeEntry {
         'hourly_rate': hourlyRate,
         'notes': notes,
         'source': source.name,
+        'invoiced_invoice_id': invoicedInvoiceId,
       };
 
   factory TimeEntry.fromMap(Map<String, Object?> map) => TimeEntry(
@@ -176,6 +184,7 @@ class TimeEntry {
         hourlyRate: (map['hourly_rate'] as num).toDouble(),
         notes: map['notes'] as String? ?? '',
         source: EntrySource.values.byName(map['source'] as String),
+        invoicedInvoiceId: map['invoiced_invoice_id'] as int?,
       );
 }
 

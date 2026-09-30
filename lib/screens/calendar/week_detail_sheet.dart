@@ -117,7 +117,7 @@ class _WeekDetailSheetState extends ConsumerState<WeekDetailSheet> {
             ),
             const SizedBox(height: 16),
             Text(
-              AppFormatters.weekRangeSheetTitle(widget.weekMonday),
+              AppFormatters.weekRangeCompact(widget.weekMonday),
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.bold,
               ),

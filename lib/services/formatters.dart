@@ -56,6 +56,12 @@ class AppFormatters {
     return '${_dayMonthLabel(monday)} - ${_dayMonthLabel(sunday)}';
   }
 
+  /// Compact week range without weekday names: `5. Okt. - 11. Okt.`
+  static String weekRangeCompact(DateTime monday) {
+    final sunday = monday.add(const Duration(days: 6));
+    return '${dayMonthCompact(monday)} - ${dayMonthCompact(sunday)}';
+  }
+
   /// Sheet title: `Mo., 5. Okt. - So., 11. Okt.`
   static String weekRangeSheetTitle(DateTime monday) {
     final sunday = monday.add(const Duration(days: 6));

@@ -106,7 +106,12 @@ class PdfInvoiceService {
               ),
               pw.SizedBox(height: 24),
               if (invoice.title.isNotEmpty) ...[
-                pw.Text(invoice.title),
+                pw.Text(
+                  invoice.title,
+                  style: pw.TextStyle(
+                    decoration: pw.TextDecoration.underline,
+                  ),
+                ),
                 pw.SizedBox(height: 8),
               ],
               ...invoice.bulletLines.map(
@@ -122,15 +127,32 @@ class PdfInvoiceService {
                 ),
               ),
               pw.SizedBox(height: 24),
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Text(invoice.teilbetragLabel),
-                  pw.Text(AppFormatters.money(invoice.amount)),
-                ],
+              pw.Container(
+                width: double.infinity,
+                decoration: const pw.BoxDecoration(
+                  border: pw.Border(
+                    bottom: pw.BorderSide(width: 0.75),
+                  ),
+                ),
+                padding: const pw.EdgeInsets.only(bottom: 2),
+                child: pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(
+                      invoice.teilbetragLabel,
+                      style: pw.TextStyle(
+                        decoration: pw.TextDecoration.underline,
+                      ),
+                    ),
+                    pw.Text(
+                      AppFormatters.money(invoice.amount),
+                      style: pw.TextStyle(
+                        decoration: pw.TextDecoration.underline,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              pw.SizedBox(height: 4),
-              pw.Divider(),
               pw.SizedBox(height: 24),
               if (settings.vatText.isNotEmpty) pw.Text(settings.vatText),
               if (paymentLine.isNotEmpty ||
