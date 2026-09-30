@@ -41,6 +41,22 @@ bash scripts/build_apk.sh --check
 
 Output: `build/app/outputs/flutter-apk/timesheet-<version>.apk` (arm64)
 
+Build (if needed) and install — usual entry point. Rebuilds when the versioned APK is missing or older than `pubspec.yaml` / `lib/**/*.dart`; skips the build when it is already up to date. Installs via adb when a device is connected; otherwise prints a warning after building.
+
+```bash
+bash scripts/install_apk.sh
+```
+
+```powershell
+.\scripts\install_apk.bat
+```
+
+Build only (no adb):
+
+```powershell
+.\scripts\build_apk.bat
+```
+
 ## Features
 
 - Reorderable workplace drawer with hourly rates

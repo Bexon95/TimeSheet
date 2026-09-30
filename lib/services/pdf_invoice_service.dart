@@ -10,6 +10,17 @@ import 'formatters.dart';
 class PdfInvoiceService {
   static const _defaultPaymentText = 'Bitte um Überweisung auf mein Konto';
 
+  static String documentHeadingLine({
+    required SavedInvoice invoice,
+    required InvoiceSettings settings,
+  }) {
+    final heading = invoice.documentHeadingSnapshot.isNotEmpty
+        ? invoice.documentHeadingSnapshot
+        : settings.documentHeadingText.trim();
+    final label = heading.isEmpty ? 'HONORARNOTE' : heading;
+    return '$label  ${invoice.invoiceNumber}';
+  }
+
   static String paymentTextFor(InvoiceSettings settings) {
     final text = settings.paymentText.trim();
     if (text.isNotEmpty) return text;
@@ -77,7 +88,10 @@ class PdfInvoiceService {
           final footnoteText = invoice.footnoteTextSnapshot.isNotEmpty
               ? invoice.footnoteTextSnapshot
               : settings.footnoteText;
-          final body = pw.Column(
+          const bodyStyle = pw.TextStyle(fontSize: 11);
+          final body = pw.DefaultTextStyle(
+            style: bodyStyle,
+            child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
               pw.Column(
@@ -105,9 +119,12 @@ class PdfInvoiceService {
               pw.SizedBox(height: 36),
               pw.Center(
                 child: pw.Text(
-                  'HONORARNOTE  ${invoice.invoiceNumber}',
+                  documentHeadingLine(
+                    invoice: invoice,
+                    settings: settings,
+                  ),
                   style: const pw.TextStyle(
-                    fontSize: 14,
+                    fontSize: 18,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
@@ -116,7 +133,7 @@ class PdfInvoiceService {
               if (invoice.title.isNotEmpty) ...[
                 pw.Text(
                   invoice.title,
-                  style: pw.TextStyle(
+                  style: const pw.TextStyle(
                     decoration: pw.TextDecoration.underline,
                   ),
                 ),
@@ -146,18 +163,8 @@ class PdfInvoiceService {
                 child: pw.Row(
                   mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                   children: [
-                    pw.Text(
-                      invoice.teilbetragLabel,
-                      style: pw.TextStyle(
-                        decoration: pw.TextDecoration.underline,
-                      ),
-                    ),
-                    pw.Text(
-                      AppFormatters.money(invoice.amount),
-                      style: pw.TextStyle(
-                        decoration: pw.TextDecoration.underline,
-                      ),
-                    ),
+                    pw.Text(invoice.teilbetragLabel),
+                    pw.Text(AppFormatters.money(invoice.amount)),
                   ],
                 ),
               ),
@@ -180,13 +187,16 @@ class PdfInvoiceService {
                   ),
               ],
             ],
+          ),
           );
 
           if (footnoteText.isEmpty) {
             return body;
           }
 
-          return pw.Column(
+          return pw.DefaultTextStyle(
+            style: bodyStyle,
+            child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.stretch,
             children: [
               pw.Expanded(child: body),
@@ -204,6 +214,7 @@ class PdfInvoiceService {
                 ),
               ),
             ],
+          ),
           );
         },
       ),

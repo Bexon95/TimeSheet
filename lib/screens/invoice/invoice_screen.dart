@@ -86,9 +86,7 @@ class InvoiceScreen extends ConsumerWidget {
               (invoice) => Card(
                 child: ListTile(
                   title: Text('Honorarnote ${invoice.invoiceNumber}'),
-                  subtitle: Text(
-                    '${AppFormatters.date(invoice.createdAt)} • ${invoice.title.isNotEmpty ? invoice.title : invoice.recipientName}',
-                  ),
+                  subtitle: Text(AppFormatters.date(invoice.createdAt)),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [

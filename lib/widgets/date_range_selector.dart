@@ -50,7 +50,7 @@ class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
         );
         if (preset != DateRangePreset.unbilled) return;
         if (current == span) return;
-        await ref.read(appStateProvider.notifier).setCustomDateRange(span);
+        await ref.read(appStateProvider.notifier).setDateRange(span);
       });
     });
 
@@ -67,7 +67,11 @@ class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             InkWell(
-              onTap: () => _pickCustom(context, ref),
+              onTap: () => _pickCustom(
+                context,
+                ref,
+                initialEntryMode: DatePickerEntryMode.input,
+              ),
               borderRadius: BorderRadius.circular(8),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
@@ -170,7 +174,7 @@ class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
     DateRange? unbilledSpan,
   ) async {
     if (unbilledSpan != null) {
-      await ref.read(appStateProvider.notifier).setCustomDateRange(unbilledSpan);
+      await ref.read(appStateProvider.notifier).setDateRange(unbilledSpan);
       return;
     }
     final workplaceId = ref.read(appStateProvider).selectedWorkplaceId;
@@ -194,7 +198,7 @@ class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
       }
       return;
     }
-    await ref.read(appStateProvider.notifier).setCustomDateRange(
+    await ref.read(appStateProvider.notifier).setDateRange(
           DateRange(
             start: DateTime(span.start.year, span.start.month, span.start.day),
             end: DateTime(span.end.year, span.end.month, span.end.day),
@@ -222,15 +226,18 @@ class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
     await ref.read(appStateProvider.notifier).setDateRange(range);
   }
 
-  Future<void> _pickCustom(BuildContext context, WidgetRef ref) async {
-    final appState = ref.read(appStateProvider);
-    final initial = appState.savedCustomDateRange ?? appState.dateRange;
+  Future<void> _pickCustom(
+    BuildContext context,
+    WidgetRef ref, {
+    DatePickerEntryMode initialEntryMode = DatePickerEntryMode.calendar,
+  }) async {
+    final range = ref.read(appStateProvider).dateRange;
     final picked = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime(2100),
-      initialDateRange: DateTimeRange(start: initial.start, end: initial.end),
-      initialEntryMode: DatePickerEntryMode.calendar,
+      initialDateRange: DateTimeRange(start: range.start, end: range.end),
+      initialEntryMode: initialEntryMode,
       locale: const Locale('de', 'DE'),
     );
     if (picked != null) {

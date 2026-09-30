@@ -20,7 +20,7 @@ class DatabaseHelper {
     final path = join(dbPath, 'timesheet.db');
     return openDatabase(
       path,
-      version: 3,
+      version: 4,
       onCreate: (db, version) async {
         await _createSchema(db);
       },
@@ -43,6 +43,14 @@ class DatabaseHelper {
           );
           await db.execute(
             "ALTER TABLE saved_invoices ADD COLUMN footnote_text_snapshot TEXT NOT NULL DEFAULT ''",
+          );
+        }
+        if (oldVersion < 4) {
+          await db.execute(
+            "ALTER TABLE invoice_settings ADD COLUMN document_heading_text TEXT NOT NULL DEFAULT 'HONORARNOTE'",
+          );
+          await db.execute(
+            "ALTER TABLE saved_invoices ADD COLUMN document_heading_snapshot TEXT NOT NULL DEFAULT ''",
           );
         }
       },
@@ -94,6 +102,7 @@ class DatabaseHelper {
             vat_text TEXT NOT NULL DEFAULT '',
             payment_text TEXT NOT NULL DEFAULT '',
             footnote_text TEXT NOT NULL DEFAULT '',
+            document_heading_text TEXT NOT NULL DEFAULT 'HONORARNOTE',
             iban TEXT NOT NULL DEFAULT '',
             bic TEXT NOT NULL DEFAULT '',
             last_invoice_number INTEGER NOT NULL DEFAULT 0,
@@ -120,6 +129,7 @@ class DatabaseHelper {
             vat_text_snapshot TEXT NOT NULL DEFAULT '',
             payment_text_snapshot TEXT NOT NULL DEFAULT '',
             footnote_text_snapshot TEXT NOT NULL DEFAULT '',
+            document_heading_snapshot TEXT NOT NULL DEFAULT '',
             FOREIGN KEY (workplace_id) REFERENCES workplaces(id) ON DELETE CASCADE
           )
         ''');

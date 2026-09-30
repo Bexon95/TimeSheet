@@ -19,6 +19,7 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
   final _vatText = TextEditingController();
   final _paymentText = TextEditingController();
   final _footnoteText = TextEditingController();
+  final _documentHeading = TextEditingController();
   final _iban = TextEditingController();
   final _bic = TextEditingController();
   bool _loaded = false;
@@ -31,6 +32,7 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
     _vatText.dispose();
     _paymentText.dispose();
     _footnoteText.dispose();
+    _documentHeading.dispose();
     _iban.dispose();
     _bic.dispose();
     super.dispose();
@@ -44,6 +46,7 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
     _vatText.text = settings.vatText;
     _paymentText.text = settings.paymentText;
     _footnoteText.text = settings.footnoteText;
+    _documentHeading.text = settings.documentHeadingText;
     _iban.text = settings.iban;
     _bic.text = settings.bic;
     _loaded = true;
@@ -59,6 +62,7 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
             vatText: _vatText.text.trim(),
             paymentText: _paymentText.text.trim(),
             footnoteText: _footnoteText.text.trim(),
+            documentHeadingText: _documentHeading.text.trim(),
             iban: _iban.text.trim(),
             bic: _bic.text.trim(),
           ),
@@ -167,6 +171,14 @@ class _InvoiceSettingsScreenState extends ConsumerState<InvoiceSettingsScreen> {
                         style: Theme.of(context).textTheme.titleSmall,
                       ),
                       const SizedBox(height: 12),
+                      TextField(
+                        controller: _documentHeading,
+                        decoration: const InputDecoration(
+                          labelText: 'Dokumentüberschrift',
+                          hintText: 'HONORARNOTE',
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       TextField(
                         controller: _vatText,
                         decoration: const InputDecoration(labelText: 'USt-Text'),

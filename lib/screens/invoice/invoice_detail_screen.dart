@@ -7,6 +7,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
+import 'invoice_pdf_preview_screen.dart';
 
 class InvoiceDetailScreen extends ConsumerWidget {
   const InvoiceDetailScreen({super.key, required this.invoice});
@@ -40,6 +41,16 @@ class InvoiceDetailScreen extends ConsumerWidget {
             style: Theme.of(context).textTheme.headlineSmall,
           ),
           const SizedBox(height: 24),
+          FilledButton.icon(
+            onPressed: () => InvoicePdfPreviewScreen.openSavedFile(
+              context,
+              pdfFilePath: invoice.pdfFilePath,
+              invoiceNumber: invoice.invoiceNumber,
+            ),
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('Vorschau'),
+          ),
+          const SizedBox(height: 8),
           FilledButton.icon(
             onPressed: () async {
               final file = File(invoice.pdfFilePath);

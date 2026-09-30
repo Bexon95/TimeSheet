@@ -2,13 +2,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../database/models.dart';
 import '../../providers/providers.dart';
 import '../../services/formatters.dart';
 import '../../services/pdf_invoice_service.dart';
+import 'invoice_pdf_preview_screen.dart';
 import '../../utils/date_only.dart';
 import '../../widgets/date_range_selector.dart';
 
@@ -39,6 +39,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
   final _vatTextController = TextEditingController();
   final _paymentTextController = TextEditingController();
   final _footnoteTextController = TextEditingController();
+  final _documentHeadingController = TextEditingController();
   final List<TextEditingController> _bulletControllers = [];
   bool _initialized = false;
   DateTime _invoiceDate = dateOnly(DateTime.now());
@@ -56,6 +57,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
     _vatTextController.dispose();
     _paymentTextController.dispose();
     _footnoteTextController.dispose();
+    _documentHeadingController.dispose();
     for (final c in _bulletControllers) {
       c.dispose();
     }
@@ -113,6 +115,10 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       _footnoteTextController.text = existing.footnoteTextSnapshot.isNotEmpty
           ? existing.footnoteTextSnapshot
           : settings.footnoteText;
+      _documentHeadingController.text =
+          existing.documentHeadingSnapshot.isNotEmpty
+              ? existing.documentHeadingSnapshot
+              : settings.documentHeadingText;
       _bulletControllers.clear();
       if (existing.bulletLines.isEmpty) {
         _bulletControllers.add(TextEditingController());
@@ -137,6 +143,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
     _vatTextController.text = settings.vatText;
     _paymentTextController.text = settings.paymentText;
     _footnoteTextController.text = settings.footnoteText;
+    _documentHeadingController.text = settings.documentHeadingText;
     await _initializeFromEntries(range);
     _lastRangeKeyStart = range.start;
     _lastRangeKeyEnd = range.end;
@@ -182,11 +189,24 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
   Future<void> _preview() async {
     final settings = await ref.read(databaseProvider).getInvoiceSettings();
     final invoice = _buildDraft(settings);
-    final pdf = await PdfInvoiceService().buildPdf(
-      invoice: invoice,
-      settings: settings,
+    final pdfService = PdfInvoiceService();
+    final fileName =
+        'Honorarnote_${invoice.invoiceNumber.replaceAll('/', '-')}.pdf';
+    if (!mounted) return;
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (context) => InvoicePdfPreviewScreen(
+          suggestedFileName: fileName,
+          onLayout: (_) async {
+            final pdf = await pdfService.buildPdf(
+              invoice: invoice,
+              settings: settings,
+            );
+            return pdf.save();
+          },
+        ),
+      ),
     );
-    await Printing.layoutPdf(onLayout: (_) async => pdf.save());
   }
 
   Future<void> _saveAndExport() async {
@@ -221,6 +241,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
         vatTextSnapshot: draft.vatTextSnapshot,
         paymentTextSnapshot: draft.paymentTextSnapshot,
         footnoteTextSnapshot: draft.footnoteTextSnapshot,
+        documentHeadingSnapshot: draft.documentHeadingSnapshot,
       );
       await db.updateSavedInvoice(updated);
       if (oldPath != file.path) {
@@ -253,6 +274,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       vatTextSnapshot: draft.vatTextSnapshot,
       paymentTextSnapshot: draft.paymentTextSnapshot,
       footnoteTextSnapshot: draft.footnoteTextSnapshot,
+      documentHeadingSnapshot: draft.documentHeadingSnapshot,
     );
     final invoiceId = await db.insertSavedInvoice(saved);
     await db.markEntriesInvoiced(
@@ -320,6 +342,7 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
       vatTextSnapshot: _vatTextController.text.trim(),
       paymentTextSnapshot: _paymentTextController.text.trim(),
       footnoteTextSnapshot: _footnoteTextController.text.trim(),
+      documentHeadingSnapshot: _documentHeadingController.text.trim(),
     );
   }
 
@@ -513,6 +536,14 @@ class _InvoiceBuilderScreenState extends ConsumerState<InvoiceBuilderScreen> {
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 12),
+                  TextField(
+                    controller: _documentHeadingController,
+                    decoration: const InputDecoration(
+                      labelText: 'Dokumentüberschrift',
+                      hintText: 'HONORARNOTE',
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   TextField(
                     controller: _vatTextController,
                     decoration: const InputDecoration(labelText: 'USt-Text'),

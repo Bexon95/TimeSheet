@@ -196,6 +196,7 @@ class InvoiceSettings {
     this.vatText = 'In diesem Betrag ist kein UST enthalten.',
     this.paymentText = 'Bitte um Überweisung auf mein Konto',
     this.footnoteText = '',
+    this.documentHeadingText = 'HONORARNOTE',
     this.iban = '',
     this.bic = '',
     this.lastInvoiceNumber = 0,
@@ -208,6 +209,7 @@ class InvoiceSettings {
   final String vatText;
   final String paymentText;
   final String footnoteText;
+  final String documentHeadingText;
   final String iban;
   final String bic;
   final int lastInvoiceNumber;
@@ -220,6 +222,7 @@ class InvoiceSettings {
     String? vatText,
     String? paymentText,
     String? footnoteText,
+    String? documentHeadingText,
     String? iban,
     String? bic,
     int? lastInvoiceNumber,
@@ -232,6 +235,8 @@ class InvoiceSettings {
       vatText: vatText ?? this.vatText,
       paymentText: paymentText ?? this.paymentText,
       footnoteText: footnoteText ?? this.footnoteText,
+      documentHeadingText:
+          documentHeadingText ?? this.documentHeadingText,
       iban: iban ?? this.iban,
       bic: bic ?? this.bic,
       lastInvoiceNumber: lastInvoiceNumber ?? this.lastInvoiceNumber,
@@ -246,6 +251,7 @@ class InvoiceSettings {
         'vat_text': vatText,
         'payment_text': paymentText,
         'footnote_text': footnoteText,
+        'document_heading_text': documentHeadingText,
         'iban': iban,
         'bic': bic,
         'last_invoice_number': lastInvoiceNumber,
@@ -261,6 +267,8 @@ class InvoiceSettings {
         paymentText: map['payment_text'] as String? ??
             'Bitte um Überweisung auf mein Konto',
         footnoteText: map['footnote_text'] as String? ?? '',
+        documentHeadingText: map['document_heading_text'] as String? ??
+            'HONORARNOTE',
         iban: map['iban'] as String? ?? '',
         bic: map['bic'] as String? ?? '',
         lastInvoiceNumber: map['last_invoice_number'] as int? ?? 0,
@@ -288,6 +296,7 @@ class SavedInvoice {
     this.vatTextSnapshot = '',
     this.paymentTextSnapshot = '',
     this.footnoteTextSnapshot = '',
+    this.documentHeadingSnapshot = '',
   });
 
   final int id;
@@ -308,6 +317,7 @@ class SavedInvoice {
   final String vatTextSnapshot;
   final String paymentTextSnapshot;
   final String footnoteTextSnapshot;
+  final String documentHeadingSnapshot;
 
   SavedInvoice copyWith({
     int? id,
@@ -328,6 +338,7 @@ class SavedInvoice {
     String? vatTextSnapshot,
     String? paymentTextSnapshot,
     String? footnoteTextSnapshot,
+    String? documentHeadingSnapshot,
   }) {
     return SavedInvoice(
       id: id ?? this.id,
@@ -348,6 +359,8 @@ class SavedInvoice {
       vatTextSnapshot: vatTextSnapshot ?? this.vatTextSnapshot,
       paymentTextSnapshot: paymentTextSnapshot ?? this.paymentTextSnapshot,
       footnoteTextSnapshot: footnoteTextSnapshot ?? this.footnoteTextSnapshot,
+      documentHeadingSnapshot:
+          documentHeadingSnapshot ?? this.documentHeadingSnapshot,
     );
   }
 
@@ -370,6 +383,7 @@ class SavedInvoice {
         'vat_text_snapshot': vatTextSnapshot,
         'payment_text_snapshot': paymentTextSnapshot,
         'footnote_text_snapshot': footnoteTextSnapshot,
+        'document_heading_snapshot': documentHeadingSnapshot,
       };
 
   factory SavedInvoice.fromMap(Map<String, Object?> map) => SavedInvoice(
@@ -394,6 +408,8 @@ class SavedInvoice {
         vatTextSnapshot: map['vat_text_snapshot'] as String? ?? '',
         paymentTextSnapshot: map['payment_text_snapshot'] as String? ?? '',
         footnoteTextSnapshot: map['footnote_text_snapshot'] as String? ?? '',
+        documentHeadingSnapshot:
+            map['document_heading_snapshot'] as String? ?? '',
       );
 }
 

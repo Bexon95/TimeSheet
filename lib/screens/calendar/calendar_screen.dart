@@ -934,16 +934,7 @@ class _WeekViewState extends ConsumerState<_WeekView> {
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: hasEntries
-                                              ? Text(
-                                                  AppFormatters.money(
-                                                    data!.earned,
-                                                  ),
-                                                  style: theme
-                                                      .textTheme.bodyMedium
-                                                      ?.copyWith(
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                )
+                                              ? const SizedBox.shrink()
                                               : Text(
                                                   'Keine Einträge',
                                                   style: theme
@@ -954,6 +945,14 @@ class _WeekViewState extends ConsumerState<_WeekView> {
                                                   ),
                                                 ),
                                         ),
+                                        if (hasEntries)
+                                          Text(
+                                            AppFormatters.money(data!.earned),
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         IconButton(
                                           icon: const Icon(Icons.add, size: 22),
                                           tooltip: 'Eintrag hinzufügen',
