@@ -1015,15 +1015,25 @@ class _DayView extends ConsumerWidget {
     final entriesAsync = ref.watch(dayEntriesProvider(query));
     final projectsAsync = ref.watch(projectsProvider(workplace.id));
 
-    return entriesAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Fehler: $e')),
-      data: (entries) {
-        final projects = projectsAsync.valueOrNull ?? <Project>[];
-        final projectMap = {for (final p in projects) p.id: p};
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity < -200) {
+          onNextDay();
+        } else if (velocity > 200) {
+          onPreviousDay();
+        }
+      },
+      child: entriesAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (e, _) => Center(child: Text('Fehler: $e')),
+        data: (entries) {
+          final projects = projectsAsync.valueOrNull ?? <Project>[];
+          final projectMap = {for (final p in projects) p.id: p};
 
-        return Column(
-          children: [
+          return Column(
+            children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Row(
@@ -1065,8 +1075,9 @@ class _DayView extends ConsumerWidget {
                     ),
             ),
           ],
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 enum CalendarViewMode { month, week, day, weekList }
 
@@ -10,6 +11,26 @@ extension CalendarViewModeLabel on CalendarViewMode {
         CalendarViewMode.day => 'Tag',
         CalendarViewMode.weekList => 'Wochenliste',
       };
+}
+
+const calendarViewModePrefsKey = 'calendar_view_mode';
+
+CalendarViewMode calendarViewModeFromStored(String? stored) {
+  if (stored == null) return CalendarViewMode.month;
+  for (final mode in CalendarViewMode.values) {
+    if (mode.name == stored) return mode;
+  }
+  return CalendarViewMode.month;
+}
+
+Future<CalendarViewMode> loadStoredCalendarViewMode() async {
+  final prefs = await SharedPreferences.getInstance();
+  return calendarViewModeFromStored(prefs.getString(calendarViewModePrefsKey));
+}
+
+Future<void> persistCalendarViewMode(CalendarViewMode mode) async {
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.setString(calendarViewModePrefsKey, mode.name);
 }
 
 final calendarViewModeProvider =
@@ -46,6 +67,7 @@ class CalendarViewModeMenu extends ConsumerWidget {
       offset: const Offset(0, 24),
       onSelected: (value) {
         ref.read(calendarViewModeProvider.notifier).state = value;
+        persistCalendarViewMode(value);
       },
       itemBuilder: (context) => CalendarViewMode.values
           .map(
