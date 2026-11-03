@@ -224,6 +224,9 @@ class AppStateNotifier extends StateNotifier<AppState> {
     final monthStart = DateTime(now.year, now.month, 1);
     final monthEnd = DateTime(now.year, now.month + 1, 0);
 
+    final followsUnbilled =
+        prefs.getBool('date_range_follows_unbilled') ?? false;
+
     state = state.copyWith(
       dateRange: DateRange(
         start: rangeStart != null ? parseDateOnly(rangeStart) : monthStart,
@@ -235,6 +238,7 @@ class AppStateNotifier extends StateNotifier<AppState> {
               end: parseDateOnly(customEnd),
             )
           : null,
+      dateRangeFollowsUnbilledSpan: followsUnbilled,
       isLoading: false,
     );
 
@@ -283,8 +287,16 @@ class AppStateNotifier extends StateNotifier<AppState> {
     }
   }
 
-  Future<void> setDateRange(DateRange range) async {
-    state = state.copyWith(dateRange: range);
+  Future<void> setDateRange(
+    DateRange range, {
+    bool followUnbilledSpan = false,
+  }) async {
+    state = state.copyWith(
+      dateRange: range,
+      dateRangeFollowsUnbilledSpan: followUnbilledSpan,
+    );
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('date_range_follows_unbilled', followUnbilledSpan);
     await _persistActiveDateRange(range);
   }
 
@@ -292,6 +304,7 @@ class AppStateNotifier extends StateNotifier<AppState> {
     state = state.copyWith(
       dateRange: range,
       savedCustomDateRange: range,
+      dateRangeFollowsUnbilledSpan: false,
     );
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(
@@ -302,6 +315,7 @@ class AppStateNotifier extends StateNotifier<AppState> {
       'custom_date_range_end',
       range.end.toIso8601String().split('T').first,
     );
+    await prefs.setBool('date_range_follows_unbilled', false);
     await _persistActiveDateRange(range);
   }
 
@@ -341,6 +355,7 @@ class AppState {
     this.selectedWorkplaceId,
     required this.dateRange,
     this.savedCustomDateRange,
+    this.dateRangeFollowsUnbilledSpan = false,
     this.activeTimer,
     this.isLoading = true,
   });
@@ -349,6 +364,7 @@ class AppState {
   final int? selectedWorkplaceId;
   final DateRange dateRange;
   final DateRange? savedCustomDateRange;
+  final bool dateRangeFollowsUnbilledSpan;
   final ActiveTimer? activeTimer;
   final bool isLoading;
 
@@ -367,6 +383,7 @@ class AppState {
     DateRange? dateRange,
     DateRange? savedCustomDateRange,
     bool clearSavedCustomDateRange = false,
+    bool? dateRangeFollowsUnbilledSpan,
     ActiveTimer? activeTimer,
     bool clearTimer = false,
     bool? isLoading,
@@ -379,6 +396,8 @@ class AppState {
       savedCustomDateRange: clearSavedCustomDateRange
           ? null
           : (savedCustomDateRange ?? this.savedCustomDateRange),
+      dateRangeFollowsUnbilledSpan:
+          dateRangeFollowsUnbilledSpan ?? this.dateRangeFollowsUnbilledSpan,
       activeTimer: clearTimer ? null : (activeTimer ?? this.activeTimer),
       isLoading: isLoading ?? this.isLoading,
     );

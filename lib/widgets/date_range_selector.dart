@@ -32,25 +32,23 @@ class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
     final workplaces = appState.workplaces;
     final entrySpan = ref.watch(entryDateSpanProvider).valueOrNull;
     final unbilledSpan = ref.watch(unbilledEntrySpanProvider).valueOrNull;
-    final activePreset = detectDateRangePreset(
-      range,
-      fullEntrySpan: entrySpan,
-      unbilledSpan: unbilledSpan,
-    );
+    final activePreset = appState.dateRangeFollowsUnbilledSpan
+        ? DateRangePreset.unbilled
+        : detectDateRangePreset(
+            range,
+            fullEntrySpan: entrySpan,
+            unbilledSpan: unbilledSpan,
+          );
 
     ref.listen(unbilledEntrySpanProvider, (previous, next) {
       next.whenData((span) async {
         if (span == null) return;
+        if (!ref.read(appStateProvider).dateRangeFollowsUnbilledSpan) return;
         final current = ref.read(appStateProvider).dateRange;
-        final entrySpan = ref.read(entryDateSpanProvider).valueOrNull;
-        final preset = detectDateRangePreset(
-          current,
-          fullEntrySpan: entrySpan,
-          unbilledSpan: span,
-        );
-        if (preset != DateRangePreset.unbilled) return;
         if (current == span) return;
-        await ref.read(appStateProvider.notifier).setDateRange(span);
+        await ref
+            .read(appStateProvider.notifier)
+            .setDateRange(span, followUnbilledSpan: true);
       });
     });
 
@@ -174,7 +172,9 @@ class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
     DateRange? unbilledSpan,
   ) async {
     if (unbilledSpan != null) {
-      await ref.read(appStateProvider.notifier).setDateRange(unbilledSpan);
+      await ref
+          .read(appStateProvider.notifier)
+          .setDateRange(unbilledSpan, followUnbilledSpan: true);
       return;
     }
     final workplaceId = ref.read(appStateProvider).selectedWorkplaceId;
@@ -203,6 +203,7 @@ class _DateRangeSelectorState extends ConsumerState<DateRangeSelector> {
             start: DateTime(span.start.year, span.start.month, span.start.day),
             end: DateTime(span.end.year, span.end.month, span.end.day),
           ),
+          followUnbilledSpan: true,
         );
   }
 

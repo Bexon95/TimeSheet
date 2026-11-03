@@ -28,15 +28,23 @@ bool showChartAxisLabel({
 }) {
   if (pointCount <= 1) return index == 0;
   if (index == 0) return true;
-  if (index == pointCount - 1) return true;
 
-  if (interval <= 1 && pointCount > 2) {
-    final slotWidth = chartWidth / pointCount;
-    final gapToLast = (pointCount - 1 - index) * slotWidth;
-    if (gapToLast < chartAxisApproxLabelWidth) return false;
+  final slotWidth = chartWidth / pointCount;
+  final minLabelGap = chartAxisApproxLabelWidth * 1.1;
+
+  if (index == pointCount - 1) {
+    if (pointCount == 2 && slotWidth < minLabelGap) return false;
+    return true;
   }
 
-  if (index == pointCount - 2 && interval <= 1) return false;
+  // The last tick always shows [rangeEnd]; skip neighbors that would collide.
+  if (index >= pointCount - 2) return false;
+
+  if (pointCount > 2) {
+    final gapToLast = (pointCount - 1 - index) * slotWidth;
+    if (gapToLast < minLabelGap) return false;
+  }
+
   return index % interval == 0;
 }
 
