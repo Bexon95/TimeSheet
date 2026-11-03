@@ -20,15 +20,26 @@ The `+BUILD` number is the Android `versionCode` when `force-version-code-ignori
 
 Command: `dart run scripts/bump_version.dart [major|minor|patch|build]` (use `scripts/flutter.bat` on Windows).
 
-## Cursor agent sessions
+## Cursor agent sessions (mandatory)
 
-Before finishing, write the bump type so the **stop** hook can apply it when `lib/` was edited:
+If you edited **`lib/**/*.dart`** (or `test/` with user-visible behavior), you **must bump before your last message**. Do not rely on the user or on remembering the stop hook — run the bump yourself every time.
+
+1. Pick the bump type from the table above.
+2. From repo root, run:
+   - Windows: `.\scripts\flutter.bat pub run scripts/bump_version.dart <major|minor|patch|build>`
+   - Git Bash: `dart run scripts/bump_version.dart <type>` (or via `scripts/resolve_flutter.sh`)
+3. Confirm `pubspec.yaml` `version:` changed (read the file or `git diff pubspec.yaml`).
+4. In your closing summary, state the new version (e.g. `1.3.2+25`).
+
+**Backup (stop hook):** also write `.cursor/.bump-type` so a missed manual bump can still run on stop when `.cursor/.bump-pending` exists (set by the afterFileEdit hook on `lib/**/*.dart` edits):
 
 - `echo minor > .cursor/.bump-type` — features
 - `echo patch > .cursor/.bump-type` — fixes
-- `echo build > .cursor/.bump-type` — chores (default if omitted)
+- `echo build > .cursor/.bump-type` — chores
 
-The stop hook runs `scripts/hooks/bump_on_stop.dart` only when `.cursor/.bump-pending` exists (set by the afterFileEdit hook on `lib/**/*.dart` edits).
+Scripts-only / README-only changes: **build** bump optional unless the user cares about traceability; still bump **build** when adding developer tooling (e.g. install scripts).
+
+**Never finish a lib-changing task with an unchanged `pubspec.yaml` version line.**
 
 ## Git commits
 
